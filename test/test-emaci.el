@@ -22,6 +22,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ert-async)
 (require 'emaci)
 
 (defmacro with-sandbox (&rest body)
@@ -29,7 +30,8 @@
   `(let ((emaci-queue nil)
         (emaci-history nil)
         (emaci--buffer-job-alist nil)
-        (emaci--build-counter 0))
+        (emaci--build-counter 0)
+        (compilation-finished-functions 'emaci//compilation-finished))
      ,@body))
 
 (ert-deftest get-buildno ()
@@ -48,6 +50,18 @@
 (defun test-job ()
   "Create a test job."
   (emaci//new-job "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
+
+(defun assert-job
+    (job buildno status statusmsg buffer dir command mode highlight-regexp)
+  "Assert job has right attributes."
+  (should (equal (emaci-job-buildno job) buildno))
+  (should (equal (emaci-job-status job) status))
+  (should (equal (emaci-job-statusmsg job) statusmsg))
+  (should (equal (emaci-job-buffer job) buffer))
+  (should (equal (emaci-job-dir job) dir))
+  (should (equal (emaci-job-command job) command))
+  (should (equal (emaci-job-mode job) mode))
+  (should (equal (emaci-job-highlight-regexp job) highlight-regexp)))
 
 (ert-deftest new-job-buildno-first ()
   "Test if first job has right build-no."
@@ -154,5 +168,23 @@
      (emaci//queue-job job)
      (emaci//queue-job job2)
      (should (emaci//running-job-p)))))
+
+(defun async-cb (cb)
+  `(lambda (&rest args) (funcall ,cb)))
+
+(defun assert-queue-empty ()
+  (should-not emaci-queue))
+
+(defun assert-history-one ()
+  (assert-job
+   (car emaci-history)
+   1 'finished (get-buffer "Build #1") "~" "echo 'Come on, you pansy'" t nil))
+
+(ert-deftest-async
+ schedule-history (assert-history-one assert-queue-empty)
+ (with-sandbox
+  (add-hook 'compilation-finish-functions (async-cb 'assert-history-one))
+  (add-hook 'compilation-finish-functions (async-cb 'assert-queue-empty))
+  (emaci//schedule "~" "echo 'Come on, you pansy!'")))
 
 ;;; test-emaci.el ends here
