@@ -94,7 +94,7 @@ If HIGHLIGHT-REGEXP is non-nil, `next-error' will temporarily highlight
 the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'."
   (let ((job (emaci//new-job dir command mode highlight-regexp)))
-    (emaci//schedule-job job)
+    (emaci//queue-job job)
     (unless (emaci//running-job-p)
       (emaci/execute-next))))
 
