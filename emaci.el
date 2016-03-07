@@ -73,6 +73,10 @@ global value of `compilation-highlight-regexp'."
   (let ((job (car emaci-queue)))
     (and job (eq (emaci-job-status job) 'running))))
 
+(defun emaci//queue-job (job)
+  "Add JOB to `emaci-queue'."
+  (add-to-list 'emaci-queue job t))
+
 (defun emaci//schedule (dir command &optional mode highlight-regexp)
   "Create and schedule a new job.
 
@@ -90,7 +94,7 @@ If HIGHLIGHT-REGEXP is non-nil, `next-error' will temporarily highlight
 the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'."
   (let ((job (emaci//new-job dir command mode highlight-regexp)))
-    (add-to-list 'emaci-queue job t)
+    (emaci//schedule-job job)
     (unless (emaci//running-job-p)
       (emaci/execute-next))))
 
