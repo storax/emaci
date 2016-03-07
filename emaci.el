@@ -58,7 +58,7 @@ If HIGHLIGHT-REGEXP is non-nil, `next-error' will temporarily highlight
 the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'."
   (let ((buildno (emaci//get-buildno)))
-    (make-emaci/job
+    (make-emaci-job
      :buildno buildno
      :status 'queued
      :statusmsg nil
