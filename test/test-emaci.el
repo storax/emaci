@@ -31,7 +31,8 @@
         (emaci-history nil)
         (emaci--buffer-job-alist nil)
         (emaci--build-counter 0)
-        (compilation-finished-functions 'emaci//compilation-finished))
+        (compilation-finish-functions nil))
+     (add-hook 'compilation-finish-functions 'emaci//compilation-finished)
      ,@body))
 
 (ert-deftest get-buildno ()
@@ -181,10 +182,17 @@
    1 'finished (get-buffer "Build #1") "~" "echo 'Come on, you pansy'" t nil))
 
 (ert-deftest-async
- schedule-history (assert-history-one assert-queue-empty)
+ schedule-history (assert-history-one)
  (with-sandbox
-  (add-hook 'compilation-finish-functions (async-cb 'assert-history-one))
-  (add-hook 'compilation-finish-functions (async-cb 'assert-queue-empty))
-  (emaci//schedule "~" "echo 'Come on, you pansy!'")))
+  (add-hook 'compilation-finish-functions (async-cb 'assert-history-one) t)
+  (emaci//schedule "~" "echo 'Come on, you pansy!'")
+  (sit-for 1)))
+
+(ert-deftest-async
+ schedule-queue (assert-queue-empty)
+ (with-sandbox
+  (add-hook 'compilation-finish-functions (async-cb 'assert-queue-empty) t)
+  (emaci//schedule "~" "echo 'Come on, you pansy!'")
+  (sit-for 1)))
 
 ;;; test-emaci.el ends here
