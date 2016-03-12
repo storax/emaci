@@ -22,8 +22,10 @@
 ;;; Code:
 
 (require 'ert)
-(require 'ert-async)
 (require 'emaci)
+
+(defvar ert-async-timeout 10
+  "Number of seconds to wait for callbacks before failing.")
 
 (ert-deftest comp-finished-hook ()
     "Test if hook is installed"
@@ -37,26 +39,50 @@
         (emaci--build-counter 0))
      ,@body))
 
-(defun async-cb (cb)
-  `(lambda (&rest args) (funcall ,cb)))
+(defmacro ert-deftest-async (name callbacks &rest body)
+  "Like `ert-deftest' but with support for async.
 
-(defmacro ert-deftest/async (name hooks &rest body)
-  `(ert-deftest-async
-   ,name ,hooks
-   (with-sandbox-async ',hooks ,@body)))
+NAME is the name of the test, which is the first argument to
+`ert-deftest'.
 
-(defmacro with-sandbox-async (hooks &rest body)
-  "Evaluate BODY with all variables let bound."
-  `(let ((emaci-queue nil)
-         (emaci-history nil)
-         (emaci--buffer-job-alist nil)
-         (emaci--build-counter 0)
-         (compilation-finish-functions (list 'emaci//compilation-finished)))
-     (setq compilation-finish-functions
-           (append
-            compilation-finish-functions
-            (mapcar 'async-cb ,hooks)))
-     ,@body (sit-for 1)))
+CALLBACKS is a list of callback functions that all must be called
+before `ert-async-timeout'.  If all callback functions have not
+been called before the timeout, the test fails.
+
+The callback functions should be called without any argument.  If
+a callback function is called with a string as argument, the test
+will fail with that error string.
+
+BODY is the actual test."
+  (declare (indent 2))
+  (let ((cbs
+         (mapcar
+          (lambda (callback)
+             `(lambda (&rest args)
+                (,callback)
+                (if (member ',callback callbacked)
+                    (ert-fail (format "Callback %s called multiple times" ',callback))
+                  (push ',callback callbacked))))
+          callbacks)))
+    `(ert-deftest ,name ()
+       (let ((callbacks ',cbs)
+             (callbacked nil)
+             (emaci-queue nil)
+             (emaci-history nil)
+             (emaci--buffer-job-alist nil)
+             (emaci--build-counter 0)
+             (compilation-finish-functions (list 'emaci//compilation-finished)))
+         (setq compilation-finish-functions (append compilation-finish-functions callbacks))
+         (with-timeout
+             (ert-async-timeout
+              (ert-fail (format "Timeout of %ds exceeded. Expected the functions [%s] to be called, but was [%s]."
+                                ert-async-timeout
+                                ,(mapconcat 'symbol-name callbacks " ")
+                                (mapconcat 'symbol-name callbacked " "))))
+           ,@body
+           (while (not (equal (sort (mapcar 'symbol-name callbacked) 'string<)
+                              (sort (mapcar 'symbol-name ',callbacks) 'string<)))
+             (accept-process-output nil 0.05)))))))
 
 (ert-deftest get-buildno ()
   "Test getting buildno."
@@ -193,20 +219,27 @@
      (emaci//queue-job job2)
      (should (emaci//running-job-p)))))
 
-(defun assert-queue-empty ()
-  (should-not emaci-queue))
-
 (defun assert-history-one ()
   (assert-job
    (car emaci-history)
-   1 'finished (get-buffer "Build #1") "~" "echo 'Come on, you pansy'" t nil))
+   1 'finished "finished\n" (get-buffer "Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
-(ert-deftest/async
+(ert-deftest-async
  schedule-history (assert-history-one)
  (emaci//schedule "~" "echo 'Come on, you pansy!'"))
 
-(ert-deftest/async
+(defun assert-queue-empty ()
+  (should-not emaci-queue))
+;;
+(ert-deftest-async
  schedulte-queue (assert-queue-empty)
  (emaci//schedule "~" "echo 'Come on, you pansy!'"))
+
+(ert-deftest-async
+ schedulte-running ()
+ (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ (assert-job
+  (car emaci-queue)
+  1 'running nil (get-buffer "Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
 ;;; test-emaci.el ends here
