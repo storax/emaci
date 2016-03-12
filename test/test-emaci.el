@@ -25,15 +25,38 @@
 (require 'ert-async)
 (require 'emaci)
 
+(ert-deftest comp-finished-hook ()
+    "Test if hook is installed"
+    (should (member 'emaci//compilation-finished compilation-finish-functions)))
+
 (defmacro with-sandbox (&rest body)
   "Evaluate BODY with all variables let bound."
   `(let ((emaci-queue nil)
         (emaci-history nil)
         (emaci--buffer-job-alist nil)
-        (emaci--build-counter 0)
-        (compilation-finish-functions nil))
-     (add-hook 'compilation-finish-functions 'emaci//compilation-finished)
+        (emaci--build-counter 0))
      ,@body))
+
+(defun async-cb (cb)
+  `(lambda (&rest args) (funcall ,cb)))
+
+(defmacro ert-deftest/async (name hooks &rest body)
+  `(ert-deftest-async
+   ,name ,hooks
+   (with-sandbox-async ',hooks ,@body)))
+
+(defmacro with-sandbox-async (hooks &rest body)
+  "Evaluate BODY with all variables let bound."
+  `(let ((emaci-queue nil)
+         (emaci-history nil)
+         (emaci--buffer-job-alist nil)
+         (emaci--build-counter 0)
+         (compilation-finish-functions (list 'emaci//compilation-finished)))
+     (setq compilation-finish-functions
+           (append
+            compilation-finish-functions
+            (mapcar 'async-cb ,hooks)))
+     ,@body (sit-for 1)))
 
 (ert-deftest get-buildno ()
   "Test getting buildno."
@@ -170,9 +193,6 @@
      (emaci//queue-job job2)
      (should (emaci//running-job-p)))))
 
-(defun async-cb (cb)
-  `(lambda (&rest args) (funcall ,cb)))
-
 (defun assert-queue-empty ()
   (should-not emaci-queue))
 
@@ -181,18 +201,12 @@
    (car emaci-history)
    1 'finished (get-buffer "Build #1") "~" "echo 'Come on, you pansy'" t nil))
 
-(ert-deftest-async
+(ert-deftest/async
  schedule-history (assert-history-one)
- (with-sandbox
-  (add-hook 'compilation-finish-functions (async-cb 'assert-history-one) t)
-  (emaci//schedule "~" "echo 'Come on, you pansy!'")
-  (sit-for 1)))
+ (emaci//schedule "~" "echo 'Come on, you pansy!'"))
 
-(ert-deftest-async
- schedule-queue (assert-queue-empty)
- (with-sandbox
-  (add-hook 'compilation-finish-functions (async-cb 'assert-queue-empty) t)
-  (emaci//schedule "~" "echo 'Come on, you pansy!'")
-  (sit-for 1)))
+(ert-deftest/async
+ schedulte-queue (assert-queue-empty)
+ (emaci//schedule "~" "echo 'Come on, you pansy!'"))
 
 ;;; test-emaci.el ends here
