@@ -39,6 +39,9 @@
 (defvar emaci--build-counter 0
   "The global job counter.")
 
+(define-error 'emaci-error "Something went wrong with emaci, sry.")
+(define-error 'emaci-error-job-running "Job is already running." 'emaci-error)
+
 (defun emaci//get-buildno ()
   "Get new build number and increase the counter `emaci--build-counter'."
   (setq emaci--build-counter (+ 1 emaci--build-counter)))
@@ -125,7 +128,7 @@ Calls `emaci//job-finished'."
          ((eq (emaci-job-status job) 'queued)
           (emaci//execute job))
          ((eq (emaci-job-status job) 'running)
-          (message "There is still a job running!")))))))
+          (signal 'emaci-error-job-running job)))))))
 
 (defun emaci//create-buffer-name (job)
   "Return a buffer name for JOB."

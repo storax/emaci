@@ -40,7 +40,20 @@
         (emaci--build-counter 0))
      ,@body))
 
+(defmacro with-advice (args &rest body)
+  "Replace a function (car of ARGS) with function (cdr of ARGS) while executing BODY."
+  (declare (indent 1))
+  (let ((fun-name (car args))
+        (advice   (cadr args))
+        (orig-sym (make-symbol "orig")))
+    `(cl-letf* ((,orig-sym  (symbol-function ',fun-name))
+                ((symbol-function ',fun-name)
+                 (lambda (&rest args)
+                   (apply ,advice ,orig-sym args))))
+       ,@body)))
+
 (defun dummy-callback ()
+  "Dummy callback so we make sure to wait for async methods."
   t)
 
 (defmacro ert-deftest-async (name callbacks &rest body)
@@ -268,40 +281,61 @@ BODY is the actual test."
   "Test compilation finished callback with empty queue."
   (emaci//compilation-finished "some buffer" "test"))
 
-(defmacro with-advice (args &rest body)
-  "Replace a function (car of ARGS) with function (cdr of ARGS)."
-  (declare (indent 1))
-  (let ((fun-name (car args))
-        (advice   (cadr args))
-        (orig-sym (make-symbol "orig")))
-    `(cl-letf* ((,orig-sym  (symbol-function ',fun-name))
-                ((symbol-function ',fun-name)
-                 (lambda (&rest args)
-                   (apply ,advice ,orig-sym args))))
-       ,@body)))
+(defmacro with-double-running-queue (&rest body)
+  "Execute body with a queue with two running jobs."
+  `(with-sandbox
+    (let* ((emaci-queue
+            (list (make-emaci-job
+                   :buildno 1 :status 'running :statusmsg nil
+                   :buffer (get-buffer-create "test buffer") :dir "~"
+                   :command "echo test1" :mode nil :highlight-regexp nil)
+                  (make-emaci-job
+                   :buildno 2 :status 'running :statusmsg nil
+                   :buffer (get-buffer-create "some buffer") :dir "~"
+                   :command "echo test2" :mode nil :highlight-regexp nil)))
+           (emaci--buffer-job-alist
+            (list (cons (get-buffer-create "some buffer") (cadr emaci-queue)))))
+      ,@body)))
 
 (ert-deftest compilation-finished-cb ()
   "Test compilation finished callback with empty queue."
+  (with-double-running-queue
+   (let ((job-finished-called nil))
+     (with-advice
+      (emaci//job-finished
+       (lambda (orig-fun job status statusmsg)
+         (setq job-finished-called t)
+         (should (eq job (cadr emaci-queue)))
+         (should (eq status 'finished))
+         (should (equal statusmsg "test"))))
+      (emaci//compilation-finished (get-buffer-create "some buffer") "test"))
+     (should job-finished-called))))
+
+(ert-deftest job-finished ()
+  "Test job finished"
   (with-sandbox
-   (let* ((job-finished-called nil)
-         (emaci-queue
-          (list (make-emaci-job
-                 :buildno 1 :status 'running :statusmsg nil
-                 :buffer "a fake buffer" :dir "~"
-                 :command "echo test1" :mode nil :highlight-regexp nil)
-                (make-emaci-job
-                 :buildno 2 :status 'running :statusmsg nil
-                 :buffer "some buffer" :dir "~"
-                 :command "echo test2" :mode nil :highlight-regexp nil)))
-         (emaci--buffer-job-alist (list (cons "some buffer" (cadr emaci-queue)))))
-    (with-advice
-     (emaci//job-finished
-      (lambda (orig-fun job status statusmsg)
-        (setq job-finished-called t)
-        (should (eq job (cadr emaci-queue)))
-        (should (eq status 'finished))
-        (should (equal statusmsg "test"))))
-     (emaci//compilation-finished "some buffer" "test"))
-    (should job-finished-called))))
+   (let* ((emaci-history (list "dummy"))
+          (job (test-job))
+          (emaci-queue (list job)))
+     (emaci//job-finished job 'finished "finished\n")
+     (should (eq (emaci-job-status job) 'finished))
+     (should (equal (emaci-job-statusmsg job) "finished\n"))
+     (should (equal emaci-history (list "dummy" job)))
+     (should-not emaci-queue))))
+
+(ert-deftest execute-next-empty-queue ()
+  "Test execute-next with  job."
+  (with-sandbox
+   (emaci/execute-next)))
+
+(ert-deftest execute-next-running ()
+  "Test execute-next with queued job."
+  (with-sandbox
+   (let ((job (test-job)))
+     (setf (emaci-job-status job) 'running)
+     (add-to-list 'emaci-queue job)
+     (should (eq (cdr (should-error (emaci/execute-next)
+                                    :type 'emaci-error-job-running))
+                 job)))))
 
 ;;; test-emaci.el ends here
