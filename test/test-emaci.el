@@ -325,12 +325,12 @@ BODY is the actual test."
      (should-not emaci-queue))))
 
 (ert-deftest execute-next-empty-queue ()
-  "Test execute-next with  job."
+  "Test execute-next with empty."
   (with-sandbox
    (emaci/execute-next)))
 
 (ert-deftest execute-next-running ()
-  "Test execute-next with queued job."
+  "Test execute-next with running job."
   (with-sandbox
    (let ((job (test-job)))
      (setf (emaci-job-status job) 'running)
@@ -338,5 +338,18 @@ BODY is the actual test."
      (should (eq (cdr (should-error (emaci/execute-next)
                                     :type 'emaci-error-job-running))
                  job)))))
+
+(ert-deftest execute-next-queued ()
+  "Test execute-next with queued job."
+  (with-sandbox
+   (let (emaci//execute-called-p)
+     (with-advice
+      (emaci//execute
+       (lambda (orig-fun job) (assert-job job 1 'queued nil nil "~" "echo Tis but a scratch" 'comint-mode "$.*^")
+         (setq emaci//execute-called-p t)))
+      (let ((job (test-job)))
+        (add-to-list 'emaci-queue job)
+        (emaci/execute-next)
+        (should emaci//execute-called-p))))))
 
 ;;; test-emaci.el ends here
