@@ -247,4 +247,24 @@ BODY is the actual test."
   (car emaci-queue)
   1 'running nil (get-buffer "Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
+(ert-deftest-async
+ schedule-two-first ()
+ (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ (assert-job
+  (car emaci-queue)
+  1 'running nil (get-buffer "Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+
+(ert-deftest-async
+ schedule-two-second ()
+ (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ (assert-job
+  (cadr emaci-queue)
+  2 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil))
+
+(ert-deftest compilation-finished-no-queue ()
+  "Test compilation finished callback with empty queue."
+  (emaci//compilation-finished "some buffer" "test"))
+
 ;;; test-emaci.el ends here
