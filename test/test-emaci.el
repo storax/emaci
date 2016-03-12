@@ -39,6 +39,9 @@
         (emaci--build-counter 0))
      ,@body))
 
+(defun dummy-callback ()
+  t)
+
 (defmacro ert-deftest-async (name callbacks &rest body)
   "Like `ert-deftest' but with support for async.
 
@@ -54,6 +57,8 @@ a callback function is called with a string as argument, the test
 will fail with that error string.
 
 BODY is the actual test."
+  (unless callbacks
+    (setq callbacks (list 'dummy-callback)))
   (declare (indent 2))
   (let ((cbs
          (mapcar
@@ -230,13 +235,13 @@ BODY is the actual test."
 
 (defun assert-queue-empty ()
   (should-not emaci-queue))
-;;
+
 (ert-deftest-async
- schedulte-queue (assert-queue-empty)
+ schedule-queue (assert-queue-empty)
  (emaci//schedule "~" "echo 'Come on, you pansy!'"))
 
 (ert-deftest-async
- schedulte-running ()
+ schedule-running ()
  (emaci//schedule "~" "echo 'Come on, you pansy!'")
  (assert-job
   (car emaci-queue)
