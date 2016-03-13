@@ -73,8 +73,9 @@ To submit a job via the command line use::
 
   $ emacsclient --eval "(emaci/submit-job-comint \"$PWD\" \"echo Hello World\")"
 
-.. Note:: You can also use emaci/submit-job and specify the mode of your compilation buffer
-          yourself.
+Note:
+
+  You can also use emaci/submit-job and specify the mode of your compilation buffer yourself.
 
 It is important that you use double-quotes so the current shell working directory is
 replaced in the string. You could wrap this command in a shell function to make
