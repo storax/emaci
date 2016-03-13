@@ -352,4 +352,34 @@ BODY is the actual test."
         (emaci/execute-next)
         (should emaci//execute-called-p))))))
 
+(ert-deftest create-buffer-name ()
+  "Test creating buffer names"
+  (with-sandbox
+   (should (equal (emaci//create-buffer-name (test-job)) "Build #1"))))
+
+(ert-deftest create-buffer ()
+  "Test creating buffer names"
+  (with-sandbox
+   (let ((job (test-job)))
+    (should (equal (emaci//create-buffer job) (get-buffer "Build #1")))
+    (should (get-buffer "Build #1"))
+    (should
+     (equal
+      emaci--buffer-job-alist
+      (list (cons (get-buffer "Build #1") job)))))))
+
+(defun assert-execute-job ()
+  (assert-job
+   (car emaci-history) 1 'finished "finished\n" (get-buffer "Build #1")
+   "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
+
+(ert-deftest-async
+ execute (assert-execute-job)
+ (let* ((job (test-job))
+        (emaci-queue (list job)))
+   (emaci//execute job)
+   (assert-job
+    (car emaci-queue) 1 'running nil (get-buffer "Build #1")
+    "~" "echo Tis but a scratch" 'comint-mode "$.*^")))
+
 ;;; test-emaci.el ends here
