@@ -9,17 +9,22 @@ emaci
    :target: https://coveralls.io/github/storax/emaci?branch=master
 
 Have you ever been in a dire need for a CI-server but there was none around
-and you couldn't setup one yourself (for whatever reason)?
+and you couldn't setup one yourself (for whatever reason)? Have you heard youself saying:
 
-Have you heard youself saying: "Screw it! I'm gonna write my own CI-Server, with blackjack and hookers!"?
+  "Screw it! I'm gonna write my own CI-Server, with blackjack and hookers!"?
 
-Well, even then you probably didn't think: "Yeah, Emacs Lisp is perfect for a CI-Server"
+Well, even then you probably didn't think:
+
+  "Yeah, Emacs Lisp is perfect for writing a CI-Server".
+
 And you are absolutly right. But nevertheless here it is:
 
   emacsi - a scheduler for shell commands in emacs
 
-.. Note:: This is in a very early alpha. Also this project is just for fun. It doesn't even try to
-          replace CI-solutions.
+**Note**:
+
+  This is in a very early alpha. Also this project is just for fun. It doesn't even try to replace CI-solutions.
+  But I guess thats obvious.
 
 --------
 Features
