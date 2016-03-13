@@ -111,7 +111,6 @@ Calls `emaci//job-finished'."
 
 (defun emaci//job-finished (job status statusmsg)
   "Callback when JOB finished with STATUS and STATUSMSG and execute the next."
-  (message "Job finished %s: %s; %s" job status statusmsg)
   (setf (emaci-job-status job) status)
   (setf (emaci-job-statusmsg job) statusmsg)
   (add-to-list 'emaci-history job t)
@@ -142,7 +141,6 @@ Calls `emaci//job-finished'."
 
 (defun emaci//execute (job)
   "Execute the next JOB."
-  (message "Execute: %s" job)
   (setf (emaci-job-status job) 'running)
   (setf (emaci-job-buffer job) (emaci//create-buffer job))
   (let ((default-directory (emaci-job-dir job)))
