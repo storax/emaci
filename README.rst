@@ -45,7 +45,6 @@ Roadmap
 * Metrics
 * Commit hook
 
-
 ----------
 Quickstart
 ----------

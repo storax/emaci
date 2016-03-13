@@ -26,7 +26,7 @@
 
 ;;; Code:
 
-(require 'cl-lib)
+(eval-when-compile (require 'cl-lib))
 
 (cl-defstruct emaci-job buildno status statusmsg buffer dir command mode highlight-regexp)
 
