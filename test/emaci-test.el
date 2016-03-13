@@ -22,6 +22,10 @@
 ;;; Code:
 
 (require 'ert)
+
+(when (require 'undercover nil t)
+  (undercover "emaci.el"))
+
 (require 'cl-lib)
 (require 'emaci)
 
