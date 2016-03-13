@@ -38,6 +38,8 @@
   "A mapping of buffers to jobs.")
 (defvar emaci--build-counter 0
   "The global job counter.")
+(defvar emaci-mode-history nil
+  "History for selecting modes.")
 
 (define-error 'emaci-error "Something went wrong with emaci, sry.")
 (define-error 'emaci-error-job-running "Job is already running." 'emaci-error)
@@ -149,6 +151,57 @@ Calls `emaci//job-finished'."
      (emaci-job-mode job)
      `(lambda (mode) (emaci//create-buffer-name ,job))
      (emaci-job-highlight-regexp job))))
+
+(defun emaci/get-dir-command ()
+  "Interactively return a directory and a command for emaci."
+  (list (read-directory-name
+         "Working directory: "
+         (projectile-project-p)
+         nil t)
+        (read-shell-command "Command: " (car shell-command-history))))
+
+(defun emaci/list-major-modes ()
+  "Returns list of potential major mode names.
+From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major-modes-list)"
+  (interactive)
+  (let (l)
+    (mapatoms #'(lambda (f) (and
+                        (commandp f)
+                        (string-match "-mode$" (symbol-name f))
+                        ;; auto-loaded
+                        (or (and (autoloadp (symbol-function f))
+                              (let ((doc (documentation f)))
+                                (when doc
+                                  (and
+                                   (let ((docSplit (help-split-fundoc doc f)))
+                                     (and docSplit ;; car is argument list
+                                        (null (cdr (read (car docSplit)))))) ;; major mode starters have no arguments
+                                   (if (string-match "[mM]inor" doc) ;; If the doc contains "minor"...
+                                       (string-match "[mM]ajor" doc) ;; it should also contain "major".
+                                     t) ;; else we cannot decide therefrom
+                                   ))))
+                           (null (help-function-arglist f)))
+                        (setq l (cons (symbol-name f) l)))))
+    l))
+
+(defun emaci/select-mode ()
+  (interactive)
+  (list
+   (intern
+    (completing-read
+     "Select mode for compilation buffer: "
+     (emaci/list-major-modes)
+     nil t nil emaci-mode-history "comint-mode"))))
+
+(defun emaci/submit-job (dir command &optional mode highlight-regexp)
+  (interactive (append
+                (emaci/get-dir-command)
+                (emaci/select-mode)))
+  (emaci//schedule dir command mode highlight-regexp))
+
+(defun emaci/submit-job-comint (dir command &optional highlight-regexp)
+  (interactive (emaci/get-dir-command))
+  (emaci//schedule dir command t highlight-regexp))
 
 (add-hook 'compilation-finish-functions 'emaci//compilation-finished)
 
