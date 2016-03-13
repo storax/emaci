@@ -24,7 +24,7 @@
 (require 'ert)
 
 (when (require 'undercover nil t)
-  (undercover "emaci.el"))
+  (undercover "*.el"))
 
 (require 'cl-lib)
 (require 'emaci)
