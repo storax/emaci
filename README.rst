@@ -41,6 +41,7 @@ Roadmap
 * Pause/Cancel Jobs
 * Multiple queues
 * Permanent build history
+* Select git branches and stashes for each build
 * Build Management buffer
 * Translate zsh function to bash
 * Metrics
