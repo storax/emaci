@@ -32,6 +32,7 @@ Features
 
 * Queue arbitrary shell commands.
 * Execute the queue automatically.
+* Send commands from the command line
 
 -------
 Roadmap
@@ -41,7 +42,7 @@ Roadmap
 * Multiple queues
 * Permanent build history
 * Build Management buffer
-* Convenient bash/zsh functions for submitting jobs from the command line
+* Translate zsh function to bash
 * Metrics
 * Commit hook
 
@@ -68,13 +69,26 @@ Emacs has a built-in server. To start the server call::
 Now you can start emacsclients in any shell, and the clients will
 use the running server (e.g. to load faster).
 This allows for emaci to be used like a CI-server.
+
+To use a convenient (zsh) shell function to send commands to emacs
+source ``emaci.zsh`` in the emaci directory or copy and paste it in your ``.zshrc`` or
+somewhere on your ``fpath``.
+
+Then you can use::
+
+  $ emaci echo Hello World
+
+~~~~~~~~~
+Breakdown
+~~~~~~~~~
+
 To submit a job via the command line use::
 
   $ emacsclient --eval "(emaci/submit-job-comint \"$PWD\" \"echo Hello World\")"
 
 Note:
 
-  You can also use emaci/submit-job and specify the mode of your compilation buffer yourself.
+  You can also use ``emaci/submit-job`` and specify the mode of your compilation buffer yourself.
 
 It is important that you use double-quotes so the current shell working directory is
 replaced in the string. You could wrap this command in a shell function to make
@@ -83,3 +97,28 @@ it easier to submit commands.
 Unfortunately the current environment is not used.
 It's only possible by setting the environment in the shell command argument.
 You could however automate this via a shell function.
+
+zsh::
+
+  $ emacienv () { echo -e $(declare -px | awk '{if (NR == 1) printf $0;else if ($0 !~ /^typeset -.*/ && last !~ /^typeset -ax.*/) printf "\\n"$0;else printf " && "$0;}{last=$0}')' && ' }
+
+This uses ``declare`` to 'serialize' all environment variables to ``typeset`` commands. These can be evaluated to restore the exact same environment. ``awk`` is used to concatenate the list of commands with ``&&`` so we get a long one-liner. The ``awk`` command uses some logic to preserve newlines in environment variables.
+
+Now we can use this environment replication mechanism to give us a nice command.
+
+zsh::
+
+  $ emaci () { emacsclient --eval "$(echo "(emaci/submit-job-comint \"$PWD\" \"$(emacienv)cd $PWD && $@\")")" }
+
+Note:
+
+  For some reason there is some weird behaviour with the working directory
+  if we don't add the ``cd $PWD`` command.
+
+Now we can use this to send shell commands to emacs::
+
+  $ emaci echo Hello World
+  $ emaci "./configure && make && make install"
+  $ emaci 'echo $PWD'
+
+I find it somehow amusing.
