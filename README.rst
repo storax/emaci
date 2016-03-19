@@ -8,23 +8,11 @@ emaci
 .. image:: https://coveralls.io/repos/github/storax/emaci/badge.svg?branch=master
    :target: https://coveralls.io/github/storax/emaci?branch=master
 
-Have you ever been in a dire need for a CI-server but there was none around
-and you couldn't setup one yourself (for whatever reason)? Have you heard youself saying:
-
-  "Screw it! I'm gonna write my own CI-Server, with blackjack and hookers!"?
-
-Well, even then you probably didn't think:
-
-  "Yeah, Emacs Lisp is perfect for writing a CI-Server".
-
-And you are absolutly right. But nevertheless here it is:
-
-  emacsi - a scheduler for shell commands in emacs
+A queue for shell commands in emacs
 
 **Note**:
 
-  This is in a very early alpha. Also this project is just for fun. It doesn't even try to replace CI-solutions.
-  But I guess thats obvious.
+  This is in a very early alpha. Also this project is just for fun.
 
 --------
 Features
@@ -58,6 +46,22 @@ After you installed emaci, load it via::
 Use ``emaci/submit-job`` or ``emaci/submit-job-comint`` to queue shell commands.
 The queue will get executed immediately. While the queue is running,
 you can submit more jobs. Once a job had finished, it will execute the next in the queue.
+
+----
+Why?
+----
+
+Having a queue for shell commands has a lot of use cases.
+
+I often find myself waiting for multiple code reviews to finish. Often they get completed in bulk and
+I have to merge multiple feature branches. Before each merge, I want to merge the latest dev branch into my feature branch and run the tests one last time,
+to see if it really does work. Because I have to wait for each test before I can test the next branch, scheduling comes in handy.
+Also sometimes I have multiple configs/environments for one project but for various reasons (not in my power to change) can't test them in parallel.
+
+There are already some solutions for emacs like `shell-command-queue.el <https://www.emacswiki.org/emacs/shell-command-queue.el>`_
+or `command-queue.el <https://github.com/Yuki-Inoue/command-queue>`_.
+But they lack some functionality to use emacs as a simple build management system, when you can't (or don't want to) use
+a proper build/test server.
 
 ------
 Server
