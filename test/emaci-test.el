@@ -221,6 +221,17 @@ BODY is the actual test."
      (emaci//queue-job job2)
      (should (equal emaci-queue (list job job2))))))
 
+(ert-deftest queue-move-to-history ()
+  "Test moving job to history."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (emaci//move-job-to-history job2)
+     (should (equal emaci-queue (list job)))
+     (should (equal emaci-history (list job2))))))
+
 (ert-deftest running-job-p-empty ()
   "Test there is no running job in an empty queue."
   (with-sandbox
@@ -284,11 +295,50 @@ BODY is the actual test."
 
 (ert-deftest schedule-deferred ()
   "Test queuing with DEFERRED arg."
- (emaci//schedule "~" "echo 'Come on, you pansy!'" nil nil t)
- (assert-job
-  (car emaci-queue)
-  1 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil))
+  (with-sandbox
+   (emaci//schedule "~" "echo 'Come on, you pansy!'" nil nil t)
+   (assert-job
+    (car emaci-queue)
+    1 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil)))
 
+(ert-deftest cancel-queued ()
+  "Test canceling a queued job."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (emaci/cancel-job job2)
+     (should (equal emaci-queue (list job)))
+     (should (equal emaci-history (list job2)))
+     (should (eq (emaci-job-status job2) 'canceled)))))
+
+(ert-deftest cancel-running ()
+  "Test canceling a running job."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (setf (emaci-job-status job2) 'running)
+     (emaci/cancel-job job2)
+     (should (equal emaci-queue (list job)))
+     (should (equal emaci-history (list job2)))
+     (should (eq (emaci-job-status job2) 'canceled)))))
+
+(ert-deftest cancel-canceled ()
+  "Test canceling a canceled job."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (setf (emaci-job-status job2) 'canceled)
+     (emaci//move-job-to-history job2)
+     (emaci/cancel-job job2)
+     (should (equal emaci-queue (list job)))
+     (should (equal emaci-history (list job2)))
+     (should (eq (emaci-job-status job2) 'canceled)))))
 
 (ert-deftest compilation-finished-no-queue ()
   "Test compilation finished callback with empty queue."

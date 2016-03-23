@@ -102,7 +102,7 @@ global value of `compilation-highlight-regexp'.
 If DEFERRED is non-nil, don't execute the job right away if queue is empty."
   (let ((job (emaci//new-job dir command mode highlight-regexp)))
     (emaci//queue-job job)
-    (unless (or (emaci//running-job-p) DEFERRED)
+    (unless (or (emaci//running-job-p) deferred)
       (emaci/execute-next))))
 
 (defun emaci//compilation-finished (buffer msg)
@@ -117,8 +117,7 @@ Calls `emaci//job-finished'."
   "Callback when JOB finished with STATUS and STATUSMSG and execute the next."
   (setf (emaci-job-status job) status)
   (setf (emaci-job-statusmsg job) statusmsg)
-  (add-to-list 'emaci-history job t)
-  (setq emaci-queue (delete job emaci-queue))
+  (emaci//move-job-to-history job)
   (emaci/execute-next))
 
 (defun emaci/execute-next ()
@@ -153,6 +152,30 @@ Calls `emaci//job-finished'."
      (emaci-job-mode job)
      `(lambda (mode) (emaci//create-buffer-name ,job))
      (emaci-job-highlight-regexp job))))
+
+(defun emaci//signal-job (sigcode job)
+  "Send SIGCODE to JOB.
+
+SIGCODE may be an integer, or a symbol whose name is a signal name."
+  (let* ((job-buffer (emaci-job-buffer job))
+         (job-status (emaci-job-status job))
+         (job-proc (get-buffer-process job-buffer)))
+    (when (and job-proc (eq job-status 'running))
+      (signal-process job-proc sigcode))))
+
+(defun emaci/cancel-job (job)
+  "Cancel JOB by interrupting the process if it is running."
+  (let ((job-status (emaci-job-status job)))
+    (when (eq job-status 'running)
+      (emaci//signal-job 2 job))
+    (when (or (eq job-status 'running) (eq job-status 'queued))
+      (setf (emaci-job-status job) 'canceled)
+      (emaci//move-job-to-history job))))
+
+(defun emaci//move-job-to-history (job)
+  "Remove JOB from queue and put it in history."
+  (add-to-list 'emaci-history job t)
+  (setq emaci-queue (delete job emaci-queue)))
 
 (defun emaci/get-dir-command ()
   "Interactively return a directory and a command for emaci."
