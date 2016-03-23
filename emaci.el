@@ -163,14 +163,28 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
     (when (and job-proc (eq job-status 'running))
       (signal-process job-proc sigcode))))
 
-(defun emaci/cancel-job (job)
-  "Cancel JOB by interrupting the process if it is running."
+(defun emaci//cancel-job1 (job)
+  "Move JOB to history and set the status to `canceled'."
   (let ((job-status (emaci-job-status job)))
-    (when (eq job-status 'running)
-      (emaci//signal-job 2 job))
     (when (or (eq job-status 'running) (eq job-status 'queued))
       (setf (emaci-job-status job) 'canceled)
       (emaci//move-job-to-history job))))
+
+(defun emaci/cancel-job (job)
+  "Cancel JOB by interrupting the process if it is running."
+  (interactive (list (car emaci-queue)))
+  (let ((job-status (emaci-job-status job)))
+    (when (eq job-status 'running)
+      (emaci//signal-job 2 job))
+    (emaci//cancel-job1 job)))
+
+(defun emaci/kill-job (job)
+  "Cancel JOB by killing the process if it is running."
+  (interactive (list (car emaci-queue)))
+  (let ((job-status (emaci-job-status job)))
+    (when (eq job-status 'running)
+      (emaci//signal-job 9 job))
+    (emaci//cancel-job1 job)))
 
 (defun emaci//move-job-to-history (job)
   "Remove JOB from queue and put it in history."

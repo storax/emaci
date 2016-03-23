@@ -21,12 +21,12 @@ Features
 * Queue arbitrary shell commands.
 * Execute the queue automatically.
 * Send commands from the command line
+* Cancel/Kill Jobs
 
 -------
 Roadmap
 -------
 
-* Pause/Cancel Jobs
 * Multiple queues
 * Permanent build history
 * Select git branches and stashes for each build
@@ -46,6 +46,11 @@ After you installed emaci, load it via::
 Use ``emaci/submit-job`` or ``emaci/submit-job-comint`` to queue shell commands.
 The queue will get executed immediately. While the queue is running,
 you can submit more jobs. Once a job had finished, it will execute the next in the queue.
+
+Jobs are queued in ``emaci-queue`` and archived in ``emaci-history``.
+You can cancel or kill the currently running job
+with ``emaci/cancel-job`` or ``emaci/kill-job``. If there are more jobs in the queue,
+you have to restart the queue by calling ``emaci/execute-next``.
 
 ----
 Why?

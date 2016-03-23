@@ -340,6 +340,45 @@ BODY is the actual test."
      (should (equal emaci-history (list job2)))
      (should (eq (emaci-job-status job2) 'canceled)))))
 
+(ert-deftest kill-queued ()
+  "Test killing a queued job."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (emaci/kill-job job2)
+     (should (equal emaci-queue (list job)))
+     (should (equal emaci-history (list job2)))
+     (should (eq (emaci-job-status job2) 'canceled)))))
+
+(ert-deftest kill-running ()
+  "Test killing a running job."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (setf (emaci-job-status job2) 'running)
+     (emaci/kill-job job2)
+     (should (equal emaci-queue (list job)))
+     (should (equal emaci-history (list job2)))
+     (should (eq (emaci-job-status job2) 'canceled)))))
+
+(ert-deftest kill-canceled ()
+  "Test killing a canceled job."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (setf (emaci-job-status job2) 'canceled)
+     (emaci//move-job-to-history job2)
+     (emaci/kill-job job2)
+     (should (equal emaci-queue (list job)))
+     (should (equal emaci-history (list job2)))
+     (should (eq (emaci-job-status job2) 'canceled)))))
+
 (ert-deftest compilation-finished-no-queue ()
   "Test compilation finished callback with empty queue."
   (emaci//compilation-finished "some buffer" "test"))
