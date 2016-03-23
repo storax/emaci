@@ -282,6 +282,14 @@ BODY is the actual test."
   (cadr emaci-queue)
   2 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil))
 
+(ert-deftest schedule-deferred ()
+  "Test queuing with DEFERRED arg."
+ (emaci//schedule "~" "echo 'Come on, you pansy!'" nil nil t)
+ (assert-job
+  (car emaci-queue)
+  1 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil))
+
+
 (ert-deftest compilation-finished-no-queue ()
   "Test compilation finished callback with empty queue."
   (emaci//compilation-finished "some buffer" "test"))
