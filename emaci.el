@@ -28,7 +28,7 @@
 
 (eval-when-compile (require 'cl-lib))
 
-(cl-defstruct emaci-job buildno status statusmsg buffer dir command mode highlight-regexp)
+(cl-defstruct emaci-job buildno status statusmsg datecreated datefinished buffer dir command mode highlight-regexp)
 
 (defvar emaci-queue nil
   "A list of `emaci-job' structs. Jobs in the queue might already be running.")
@@ -67,6 +67,8 @@ global value of `compilation-highlight-regexp'."
      :buildno buildno
      :status 'queued
      :statusmsg nil
+     :datecreated (current-time)
+     :datefinished nil
      :buffer nil
      :dir dir
      :command command
@@ -117,6 +119,7 @@ Calls `emaci//job-finished'."
   "Callback when JOB finished with STATUS and STATUSMSG and execute the next."
   (setf (emaci-job-status job) status)
   (setf (emaci-job-statusmsg job) statusmsg)
+  (setf (emaci-job-datefinished job) (current-time))
   (emaci//move-job-to-history job)
   (emaci/execute-next))
 
