@@ -143,7 +143,7 @@ BODY is the actual test."
 
 (defun test-job ()
   "Create a test job."
-  (emaci//new-job "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
+  (emaci//new-job "testqueue" "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
 
 (defun assert-job
     (job buildno status statusmsg buffer dir command mode highlight-regexp)
@@ -174,7 +174,7 @@ BODY is the actual test."
   "Test if counter is increased after job creation."
   (with-sandbox
    (let ((job (test-job)))
-     (should (equal emaci--build-counter '(("*default*" . 1)))))))
+     (should (equal emaci--build-counter '(("testqueue" . 1)))))))
 
 (ert-deftest new-job-status ()
   "Test initial job status."
@@ -229,17 +229,33 @@ BODY is the actual test."
   "Test if a job gets queued."
   (with-sandbox
    (let ((job (test-job)))
-     (emaci//queue-job job)
-     (should (equal emaci-queue (list job))))))
+     (emaci//queue-job job "testqueue")
+     (should (equal emaci-queue (list (cons "testqueue" (list job))))))))
 
 (ert-deftest queue-job-two ()
   "Test if job gets appended to queue."
   (with-sandbox
    (let ((job (test-job))
          (job2 (test-job)))
-     (emaci//queue-job job)
-     (emaci//queue-job job2)
-     (should (equal emaci-queue (list job job2))))))
+     (emaci//queue-job job "testqueue")
+     (emaci//queue-job job2 "testqueue")
+     (should (equal emaci-queue (list (cons "testqueue" (list job job2))))))))
+
+(ert-deftest queue-job-one-default ()
+  "Test if a job gets queued to default queue."
+  (with-sandbox
+   (let ((job (test-job)))
+     (emaci//queue-job job nil)
+     (should (equal emaci-queue (list (cons "*default*" (list job))))))))
+
+(ert-deftest queue-job-two-default ()
+  "Test if job gets appended to default queue."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job nil)
+     (emaci//queue-job job2 nil)
+     (should (equal emaci-queue (list (cons "*default*" (list job job2))))))))
 
 (ert-deftest queue-move-to-history ()
   "Test moving job to history."

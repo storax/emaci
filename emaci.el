@@ -31,14 +31,16 @@
 (cl-defstruct emaci-job buildno status statusmsg datecreated datefinished buffer dir command mode highlight-regexp)
 
 (defvar emaci-queue nil
-  "A list of `emaci-job' structs. Jobs in the queue might already be running.")
+  "An alist of queue names as car and a list of `emaci-job' structs as cdr.
+Jobs in the queue might already be running.")
 (defvar emaci-history nil
-  "A list of `emaci-job' structs. Jobs in the history are finished or cancled.")
+  "An alist of queue names as car and a list of `emaci-job' structs as cdr.
+Jobs in the history are finished or cancled.")
 (defvar emaci--buffer-job-alist nil
   "A mapping of buffers to jobs.")
 (defvar emaci--build-counter nil
   "The global job counter.
-It is an alist where the queues are the keys.")
+It is an alist where the queue names as car and the counter number as cdr.")
 (defvar emaci-mode-history nil
   "History for selecting modes.")
 
@@ -55,8 +57,10 @@ If QUEUE is not in the counter, it is added to it, starting with 1."
     (let ((count (cdr (assoc queue emaci--build-counter))))
       (setf (cdr (assoc queue emaci--build-counter)) (+ 1 count)))))
 
-(defun emaci//new-job (dir command mode highlight-regexp)
+(defun emaci//new-job (queue dir command mode highlight-regexp)
   "Create a new job which gets executed in DIR.
+
+The job is creaed for QUEUE. If QUEUE is nil, use default queue.
 
 Run compilation command COMMAND (low level interface).
 If COMMAND starts with a cd command, that becomes the `default-directory'.
@@ -69,7 +73,7 @@ under `comint-mode'.
 If HIGHLIGHT-REGEXP is non-nil, `next-error' will temporarily highlight
 the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'."
-  (let ((buildno (emaci//get-buildno)))
+  (let ((buildno (emaci//get-buildno queue)))
     (make-emaci-job
      :buildno buildno
      :status 'queued
@@ -87,9 +91,12 @@ global value of `compilation-highlight-regexp'."
   (let ((job (car emaci-queue)))
     (and job (eq (emaci-job-status job) 'running))))
 
-(defun emaci//queue-job (job)
-  "Add JOB to `emaci-queue'."
-  (add-to-list 'emaci-queue job t))
+(defun emaci//queue-job (job &optional queue)
+  "Add JOB to QUEUE in `emaci-queue'."
+  (let ((queue (if queue queue "*default*")))
+    (if (assoc queue emaci-queue)
+        (setf (cdr (assoc queue emaci-queue)) (append (cdr (assoc queue emaci-queue)) (list job)))
+      (add-to-list 'emaci-queue (cons queue (list job))))))
 
 (defun emaci//schedule (dir command &optional mode highlight-regexp deferred)
   "Create and schedule a new job.
