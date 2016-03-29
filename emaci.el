@@ -36,17 +36,24 @@
   "A list of `emaci-job' structs. Jobs in the history are finished or cancled.")
 (defvar emaci--buffer-job-alist nil
   "A mapping of buffers to jobs.")
-(defvar emaci--build-counter 0
-  "The global job counter.")
+(defvar emaci--build-counter nil
+  "The global job counter.
+It is an alist where the queues are the keys.")
 (defvar emaci-mode-history nil
   "History for selecting modes.")
 
 (define-error 'emaci-error "Something went wrong with emaci, sry.")
 (define-error 'emaci-error-job-running "Job is already running." 'emaci-error)
 
-(defun emaci//get-buildno ()
-  "Get new build number and increase the counter `emaci--build-counter'."
-  (setq emaci--build-counter (+ 1 emaci--build-counter)))
+(defun emaci//get-buildno (&optional queue)
+  "Get new build number and increase the counter `emaci--build-counter'.
+If QUEUE is non-nil, use the counter for that queue.
+If QUEUE is not in the counter, it is added to it, starting with 1."
+  (let ((queue (if queue queue "*default*")))
+    (unless (assoc queue emaci--build-counter)
+      (add-to-list 'emaci--build-counter (cons queue 0)))
+    (let ((count (cdr (assoc queue emaci--build-counter))))
+      (setf (cdr (assoc queue emaci--build-counter)) (+ 1 count)))))
 
 (defun emaci//new-job (dir command mode highlight-regexp)
   "Create a new job which gets executed in DIR.

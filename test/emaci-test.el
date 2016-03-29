@@ -41,7 +41,7 @@
   `(let ((emaci-queue nil)
         (emaci-history nil)
         (emaci--buffer-job-alist nil)
-        (emaci--build-counter 0))
+        (emaci--build-counter nil))
      ,@body))
 
 (defmacro with-advice (args &rest body)
@@ -94,7 +94,7 @@ BODY is the actual test."
              (emaci-queue nil)
              (emaci-history nil)
              (emaci--buffer-job-alist nil)
-             (emaci--build-counter 0)
+             (emaci--build-counter nil)
              (compilation-finish-functions (list 'emaci//compilation-finished)))
          (setq compilation-finish-functions (append compilation-finish-functions callbacks))
          (with-timeout
@@ -108,18 +108,38 @@ BODY is the actual test."
                               (sort (mapcar 'symbol-name ',callbacks) 'string<)))
              (accept-process-output nil 0.05)))))))
 
-(ert-deftest get-buildno ()
-  "Test getting buildno."
+(ert-deftest get-buildno-default ()
+  "Test getting buildno for default queue."
   (with-sandbox
   (let ((result (emaci//get-buildno)))
     (should (equal result 1)))))
 
-(ert-deftest get-buildno-increase ()
-  "Test getting buildno."
+(ert-deftest get-buildno-increase-default ()
+  "Test getting another buildno for default queue."
   (with-sandbox
-   (let ((emaci--build-counter 1))
+   (let ((emaci--build-counter '(("*default*" . 1))))
     (emaci//get-buildno)
-    (should (equal emaci--build-counter 2)))))
+    (should (equal (cdr (assoc "*default*" emaci--build-counter)) 2)))))
+
+(ert-deftest get-buildno-queue ()
+  "Test getting buildno for a new queue."
+  (with-sandbox
+   (let ((result (emaci//get-buildno "testqueue")))
+     (should (equal result 1)))))
+
+(ert-deftest build-counter-new-queue ()
+  "Test getting a buildno for a new queue."
+  (with-sandbox
+   (let ((emaci--build-counter '(("*default*" . 1))))
+     (emaci//get-buildno "testqueue")
+     (should (equal emaci--build-counter '(("testqueue" . 1) ("*default*" . 1)))))))
+
+(ert-deftest build-counter-increase-queue ()
+  "Test getting a buildno for an existing queue."
+  (with-sandbox
+   (let ((emaci--build-counter '(("*default*" . 1) ("testqueue" . 1))))
+     (should (equal (emaci//get-buildno "testqueue") 2))
+     (should (equal emaci--build-counter '(("*default*" . 1) ("testqueue" . 2)))))))
 
 (defun test-job ()
   "Create a test job."
@@ -154,7 +174,7 @@ BODY is the actual test."
   "Test if counter is increased after job creation."
   (with-sandbox
    (let ((job (test-job)))
-     (should (equal emaci--build-counter 1)))))
+     (should (equal emaci--build-counter '(("*default*" . 1)))))))
 
 (ert-deftest new-job-status ()
   "Test initial job status."
