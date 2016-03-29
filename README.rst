@@ -22,12 +22,12 @@ Features
 * Execute the queue automatically.
 * Send commands from the command line
 * Cancel/Kill Jobs
+* Multiple queues
 
 -------
 Roadmap
 -------
 
-* Multiple queues
 * Permanent build history
 * Select git branches and stashes for each build
 * Build Management buffer
@@ -94,7 +94,7 @@ Breakdown
 
 To submit a job via the command line use::
 
-  $ emacsclient --eval "(emaci/submit-job-comint \"$PWD\" \"echo Hello World\")"
+  $ emacsclient --eval "(emaci/submit-job-comint nil \"$PWD\" \"echo Hello World\")"
 
 Note:
 
@@ -118,7 +118,7 @@ Now we can use this environment replication mechanism to give us a nice command.
 
 zsh::
 
-  $ emaci () { emacsclient --eval "$(echo "(emaci/submit-job-comint \"$PWD\" \"$(emacienv)cd $PWD && $@\")")" }
+  $ emaci () { emacsclient --eval "$(echo "(emaci/submit-job-comint nil \"$PWD\" \"$(emacienv)cd $PWD && $@\")")" }
 
 Note:
 
