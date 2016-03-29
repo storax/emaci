@@ -28,7 +28,7 @@
 
 (eval-when-compile (require 'cl-lib))
 
-(cl-defstruct emaci-job buildno status statusmsg datecreated datefinished buffer dir command mode highlight-regexp)
+(cl-defstruct emaci-job buildno queue status statusmsg datecreated datefinished buffer dir command mode highlight-regexp)
 
 (defvar emaci-queue nil
   "An alist of queue names as car and a list of `emaci-job' structs as cdr.
@@ -60,7 +60,7 @@ If QUEUE is not in the counter, it is added to it, starting with 1."
 (defun emaci//new-job (queue dir command mode highlight-regexp)
   "Create a new job which gets executed in DIR.
 
-The job is creaed for QUEUE. If QUEUE is nil, use default queue.
+The job is created for QUEUE. If QUEUE is nil, use default queue.
 
 Run compilation command COMMAND (low level interface).
 If COMMAND starts with a cd command, that becomes the `default-directory'.
@@ -73,9 +73,11 @@ under `comint-mode'.
 If HIGHLIGHT-REGEXP is non-nil, `next-error' will temporarily highlight
 the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'."
-  (let ((buildno (emaci//get-buildno queue)))
+  (let ((buildno (emaci//get-buildno queue))
+        (queue (if queue queue "*default*")))
     (make-emaci-job
      :buildno buildno
+     :queue queue
      :status 'queued
      :statusmsg nil
      :datecreated (current-time)
@@ -86,21 +88,23 @@ global value of `compilation-highlight-regexp'."
      :mode mode
      :highlight-regexp highlight-regexp)))
 
-(defun emaci//running-job-p ()
+(defun emaci//running-job-p (&optional queue)
   "Return t if there is a running job."
-  (let ((job (car emaci-queue)))
+  (let* ((queue (if queue queue "*default*"))
+         (job (cadr (assoc queue emaci-queue))))
     (and job (eq (emaci-job-status job) 'running))))
 
-(defun emaci//queue-job (job &optional queue)
+(defun emaci//queue-job (job)
   "Add JOB to QUEUE in `emaci-queue'."
-  (let ((queue (if queue queue "*default*")))
+  (let ((queue (emaci-job-queue job)))
     (if (assoc queue emaci-queue)
         (setf (cdr (assoc queue emaci-queue)) (append (cdr (assoc queue emaci-queue)) (list job)))
       (add-to-list 'emaci-queue (cons queue (list job))))))
 
-(defun emaci//schedule (dir command &optional mode highlight-regexp deferred)
+(defun emaci//schedule (queue dir command &optional mode highlight-regexp deferred)
   "Create and schedule a new job.
 
+Schedule the job in QUEUE.
 The job will get executed in DIR.
 
 Run compilation command COMMAND (low level interface).
@@ -116,10 +120,10 @@ the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'.
 
 If DEFERRED is non-nil, don't execute the job right away if queue is empty."
-  (let ((job (emaci//new-job dir command mode highlight-regexp)))
+  (let ((job (emaci//new-job queue dir command mode highlight-regexp)))
     (emaci//queue-job job)
-    (unless (or (emaci//running-job-p) deferred)
-      (emaci/execute-next))))
+    (unless (or (emaci//running-job-p queue) deferred)
+      (emaci/execute-next queue))))
 
 (defun emaci//compilation-finished (buffer msg)
   "Callback when compilation buffer finishes in BUFFER with MSG.
@@ -135,12 +139,13 @@ Calls `emaci//job-finished'."
   (setf (emaci-job-statusmsg job) statusmsg)
   (setf (emaci-job-datefinished job) (current-time))
   (emaci//move-job-to-history job)
-  (emaci/execute-next))
+  (emaci/execute-next (emaci-job-queue job)))
 
-(defun emaci/execute-next ()
+(defun emaci/execute-next (&optional queue)
   "Execute the next job in the queue."
   (interactive)
-  (let ((job (car emaci-queue)))
+  (let* ((queue (if queue queue "*default*"))
+         (job (cadr (assoc queue emaci-queue))))
     (when job
       (let ((status (emaci-job-status job)))
         (cond
@@ -151,7 +156,7 @@ Calls `emaci//job-finished'."
 
 (defun emaci//create-buffer-name (job)
   "Return a buffer name for JOB."
-  (format "Build #%s" (emaci-job-buildno job)))
+  (format "%s: Build #%s" (emaci-job-queue job) (emaci-job-buildno job)))
 
 (defun emaci//create-buffer (job)
   "Create a buffer name for JOB."
@@ -205,8 +210,11 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
 
 (defun emaci//move-job-to-history (job)
   "Remove JOB from queue and put it in history."
-  (add-to-list 'emaci-history job t)
-  (setq emaci-queue (delete job emaci-queue)))
+  (let ((queue (emaci-job-queue job)))
+    (if (assoc queue emaci-history)
+        (setf (cdr (assoc queue emaci-history)) (append (cdr (assoc queue emaci-history)) (list job)))
+      (add-to-list 'emaci-history (cons queue (list job))))
+    (setf (cdr (assoc queue emaci-queue)) (delete job (cdr (assoc queue emaci-queue))))))
 
 (defun emaci/get-dir-command ()
   "Interactively return a directory and a command for emaci."
@@ -249,15 +257,29 @@ From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major
      (emaci/list-major-modes)
      nil t nil emaci-mode-history "comint-mode"))))
 
-(defun emaci/submit-job (dir command &optional mode highlight-regexp)
+(defun emaci/list-queues ()
+  (mapcar 'car emaci-queue))
+
+(defun emaci/select-queue ()
+  (interactive)
+  (list
+   (completing-read
+    "Select mode for compilation buffer: "
+    (emaci/list-queues)
+    nil nil nil nil "*default*")))
+
+(defun emaci/submit-job (queue dir command &optional mode highlight-regexp)
   (interactive (append
+                (emaci/select-queue)
                 (emaci/get-dir-command)
                 (emaci/select-mode)))
-  (emaci//schedule dir command mode highlight-regexp))
+  (emaci//schedule queue dir command mode highlight-regexp))
 
-(defun emaci/submit-job-comint (dir command &optional highlight-regexp)
-  (interactive (emaci/get-dir-command))
-  (emaci//schedule dir command t highlight-regexp))
+(defun emaci/submit-job-comint (queue dir command &optional highlight-regexp)
+  (interactive (append
+                (emaci/select-queue)
+                (emaci/get-dir-command)))
+  (emaci//schedule queue dir command t highlight-regexp))
 
 (add-hook 'compilation-finish-functions 'emaci//compilation-finished)
 

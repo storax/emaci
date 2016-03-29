@@ -145,9 +145,15 @@ BODY is the actual test."
   "Create a test job."
   (emaci//new-job "testqueue" "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
 
+(defun default-test-job ()
+  "Create a test job."
+  (emaci//new-job nil "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
+
+
 (defun assert-job
-    (job buildno status statusmsg buffer dir command mode highlight-regexp)
+    (job queue buildno status statusmsg buffer dir command mode highlight-regexp)
   "Assert job has right attributes."
+  (should (equal (emaci-job-queue job) queue))
   (should (equal (emaci-job-buildno job) buildno))
   (should (equal (emaci-job-status job) status))
   (should (equal (emaci-job-statusmsg job) statusmsg))
@@ -229,7 +235,7 @@ BODY is the actual test."
   "Test if a job gets queued."
   (with-sandbox
    (let ((job (test-job)))
-     (emaci//queue-job job "testqueue")
+     (emaci//queue-job job)
      (should (equal emaci-queue (list (cons "testqueue" (list job))))))))
 
 (ert-deftest queue-job-two ()
@@ -237,24 +243,24 @@ BODY is the actual test."
   (with-sandbox
    (let ((job (test-job))
          (job2 (test-job)))
-     (emaci//queue-job job "testqueue")
-     (emaci//queue-job job2 "testqueue")
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
      (should (equal emaci-queue (list (cons "testqueue" (list job job2))))))))
 
 (ert-deftest queue-job-one-default ()
   "Test if a job gets queued to default queue."
   (with-sandbox
-   (let ((job (test-job)))
-     (emaci//queue-job job nil)
+   (let ((job (default-test-job)))
+     (emaci//queue-job job)
      (should (equal emaci-queue (list (cons "*default*" (list job))))))))
 
 (ert-deftest queue-job-two-default ()
   "Test if job gets appended to default queue."
   (with-sandbox
-   (let ((job (test-job))
-         (job2 (test-job)))
-     (emaci//queue-job job nil)
-     (emaci//queue-job job2 nil)
+   (let ((job (default-test-job))
+         (job2 (default-test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
      (should (equal emaci-queue (list (cons "*default*" (list job job2))))))))
 
 (ert-deftest queue-move-to-history ()
@@ -265,8 +271,19 @@ BODY is the actual test."
      (emaci//queue-job job)
      (emaci//queue-job job2)
      (emaci//move-job-to-history job2)
-     (should (equal emaci-queue (list job)))
-     (should (equal emaci-history (list job2))))))
+     (should (equal emaci-queue (list (cons "testqueue" (list job)))))
+     (should (equal emaci-history (list (cons "testqueue" (list job2))))))))
+
+(ert-deftest queue-move-to-history-default ()
+  "Test moving job to default history."
+  (with-sandbox
+   (let ((job (default-test-job))
+         (job2 (default-test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (emaci//move-job-to-history job2)
+     (should (equal emaci-queue (list (cons "*default*" (list job)))))
+     (should (equal emaci-history (list (cons "*default*" (list job2))))))))
 
 (ert-deftest running-job-p-empty ()
   "Test there is no running job in an empty queue."
@@ -278,7 +295,7 @@ BODY is the actual test."
   (with-sandbox
    (let ((job (test-job)))
      (emaci//queue-job job)
-     (should-not (emaci//running-job-p)))))
+     (should-not (emaci//running-job-p "testqueue")))))
 
 (ert-deftest running-job-p-running ()
   "Test if there is a running job in queue."
@@ -288,54 +305,87 @@ BODY is the actual test."
      (setf (emaci-job-status job) 'running)
      (emaci//queue-job job)
      (emaci//queue-job job2)
+     (should (emaci//running-job-p "testqueue")))))
+
+(ert-deftest running-job-p-running-default ()
+  "Test if there is a running job in default queue."
+  (with-sandbox
+   (let ((job (default-test-job))
+         (job2 (default-test-job)))
+     (setf (emaci-job-status job) 'running)
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
      (should (emaci//running-job-p)))))
 
-(defun assert-history-one ()
+(defun assert-history-one-default ()
   (assert-job
-   (car emaci-history)
-   1 'finished "finished\n" (get-buffer "Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+   (cadr (assoc "*default*" emaci-history))
+   "*default*" 1 'finished "finished\n" (get-buffer "*default*: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
- schedule-history (assert-history-one)
- (emaci//schedule "~" "echo 'Come on, you pansy!'"))
+ schedule-history-default (assert-history-one-default)
+ (emaci//schedule nil "~" "echo 'Come on, you pansy!'"))
 
-(defun assert-queue-empty ()
-  (should-not emaci-queue))
+(defun assert-history-one-queue ()
+  (assert-job
+   (cadr (assoc "testqueue" emaci-history))
+   "testqueue" 1 'finished "finished\n" (get-buffer "testqueue: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
- schedule-queue (assert-queue-empty)
- (emaci//schedule "~" "echo 'Come on, you pansy!'"))
+ schedule-history-queue (assert-history-one-queue)
+ (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'"))
+
+(defun assert-queue-empty-default ()
+  (should-not (cdr (assoc "*default*" emaci-queue))))
+
+(ert-deftest-async
+ schedule-queue-default (assert-queue-empty-default)
+ (emaci//schedule nil "~" "echo 'Come on, you pansy!'"))
+
+(defun assert-queue-empty-queue ()
+  (should-not (cdr (assoc "testqueue" emaci-queue))))
+
+(ert-deftest-async
+ schedule-queue-queue (assert-queue-empty-queue)
+ (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'"))
+
+(ert-deftest-async
+ schedule-running-default ()
+ (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
+ (assert-job
+  (cadr (assoc "*default*" emaci-queue))
+  "*default*" 1 'running nil (get-buffer "*default*: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-running ()
- (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'")
  (assert-job
-  (car emaci-queue)
-  1 'running nil (get-buffer "Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+  (cadr (assoc "testqueue" emaci-queue))
+  "testqueue" 1 'running nil (get-buffer "testqueue: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
- schedule-two-first ()
- (emaci//schedule "~" "echo 'Come on, you pansy!'")
- (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ schedule-two-first-default ()
+ (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
+ (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
  (assert-job
-  (car emaci-queue)
-  1 'running nil (get-buffer "Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+  (cadr (assoc "*default*" emaci-queue))
+  "*default*" 1 'running nil (get-buffer "*default*: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
- schedule-two-second ()
- (emaci//schedule "~" "echo 'Come on, you pansy!'")
- (emaci//schedule "~" "echo 'Come on, you pansy!'")
+ schedule-two-second-default ()
+ (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
+ (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
  (assert-job
-  (cadr emaci-queue)
-  2 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil))
+  (nth 1 (cdr (assoc "*default*" emaci-queue)))
+  "*default*" 2 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest schedule-deferred ()
   "Test queuing with DEFERRED arg."
   (with-sandbox
-   (emaci//schedule "~" "echo 'Come on, you pansy!'" nil nil t)
+   (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'" nil nil t)
    (assert-job
-    (car emaci-queue)
-    1 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil)))
+    (cadr (assoc "testqueue" emaci-queue))
+    "testqueue" 1 'queued nil nil "~" "echo 'Come on, you pansy!'" nil nil)))
 
 (ert-deftest cancel-queued ()
   "Test canceling a queued job."
@@ -345,8 +395,8 @@ BODY is the actual test."
      (emaci//queue-job job)
      (emaci//queue-job job2)
      (emaci/cancel-job job2)
-     (should (equal emaci-queue (list job)))
-     (should (equal emaci-history (list job2)))
+     (should (equal emaci-queue (list (cons "testqueue" (list job)))))
+     (should (equal emaci-history (list (cons "testqueue" (list job2)))))
      (should (eq (emaci-job-status job2) 'canceled)))))
 
 (ert-deftest cancel-running ()
@@ -358,8 +408,8 @@ BODY is the actual test."
      (emaci//queue-job job2)
      (setf (emaci-job-status job2) 'running)
      (emaci/cancel-job job2)
-     (should (equal emaci-queue (list job)))
-     (should (equal emaci-history (list job2)))
+     (should (equal emaci-queue (list (cons "testqueue" (list job)))))
+     (should (equal emaci-history (list (cons "testqueue" (list job2)))))
      (should (eq (emaci-job-status job2) 'canceled)))))
 
 (ert-deftest cancel-canceled ()
@@ -372,8 +422,8 @@ BODY is the actual test."
      (setf (emaci-job-status job2) 'canceled)
      (emaci//move-job-to-history job2)
      (emaci/cancel-job job2)
-     (should (equal emaci-queue (list job)))
-     (should (equal emaci-history (list job2)))
+     (should (equal emaci-queue (list (cons "testqueue" (list job)))))
+     (should (equal emaci-history (list (cons "testqueue" (list job2)))))
      (should (eq (emaci-job-status job2) 'canceled)))))
 
 (ert-deftest kill-queued ()
@@ -384,8 +434,8 @@ BODY is the actual test."
      (emaci//queue-job job)
      (emaci//queue-job job2)
      (emaci/kill-job job2)
-     (should (equal emaci-queue (list job)))
-     (should (equal emaci-history (list job2)))
+     (should (equal emaci-queue (list (cons "testqueue" (list job)))))
+     (should (equal emaci-history (list (cons "testqueue" (list job2)))))
      (should (eq (emaci-job-status job2) 'canceled)))))
 
 (ert-deftest kill-running ()
@@ -397,8 +447,8 @@ BODY is the actual test."
      (emaci//queue-job job2)
      (setf (emaci-job-status job2) 'running)
      (emaci/kill-job job2)
-     (should (equal emaci-queue (list job)))
-     (should (equal emaci-history (list job2)))
+     (should (equal emaci-queue (list (cons "testqueue" (list job)))))
+     (should (equal emaci-history (list (cons "testqueue" (list job2)))))
      (should (eq (emaci-job-status job2) 'canceled)))))
 
 (ert-deftest kill-canceled ()
@@ -411,8 +461,8 @@ BODY is the actual test."
      (setf (emaci-job-status job2) 'canceled)
      (emaci//move-job-to-history job2)
      (emaci/kill-job job2)
-     (should (equal emaci-queue (list job)))
-     (should (equal emaci-history (list job2)))
+     (should (equal emaci-queue (list (cons "testqueue" (list job)))))
+     (should (equal emaci-history (list (cons "testqueue" (list job2)))))
      (should (eq (emaci-job-status job2) 'canceled)))))
 
 (ert-deftest compilation-finished-no-queue ()
@@ -423,16 +473,20 @@ BODY is the actual test."
   "Execute body with a queue with two running jobs."
   `(with-sandbox
     (let* ((emaci-queue
-            (list (make-emaci-job
+            (list
+             (cons
+              "testqueue"
+              (list
+               (make-emaci-job
                    :buildno 1 :status 'running :statusmsg nil
                    :buffer (get-buffer-create "test buffer") :dir "~"
                    :command "echo test1" :mode nil :highlight-regexp nil)
                   (make-emaci-job
                    :buildno 2 :status 'running :statusmsg nil
                    :buffer (get-buffer-create "some buffer") :dir "~"
-                   :command "echo test2" :mode nil :highlight-regexp nil)))
+                   :command "echo test2" :mode nil :highlight-regexp nil)))))
            (emaci--buffer-job-alist
-            (list (cons (get-buffer-create "some buffer") (cadr emaci-queue)))))
+            (list (cons (get-buffer-create "some buffer") (cadr (assoc "testqueue" emaci-queue))))))
       ,@body)))
 
 (ert-deftest compilation-finished-cb ()
@@ -443,7 +497,7 @@ BODY is the actual test."
       (emaci//job-finished
        (lambda (orig-fun job status statusmsg)
          (setq job-finished-called t)
-         (should (eq job (cadr emaci-queue)))
+         (should (eq job (cadr (assoc "testqueue" emaci-queue))))
          (should (eq status 'finished))
          (should (equal statusmsg "test"))))
       (emaci//compilation-finished (get-buffer-create "some buffer") "test"))
@@ -452,17 +506,34 @@ BODY is the actual test."
 (ert-deftest job-finished ()
   "Test job finished"
   (with-sandbox
-   (let* ((emaci-history (list "dummy"))
+   (let* ((emaci-history (list (cons "testqueue" (list "dummy"))))
           (job (test-job))
-          (emaci-queue (list job)))
+          (emaci-queue (list (cons "testqueue" (list job)))))
      (emaci//job-finished job 'finished "finished\n")
      (should (eq (emaci-job-status job) 'finished))
      (should (equal (emaci-job-statusmsg job) "finished\n"))
-     (should (equal emaci-history (list "dummy" job)))
-     (should-not emaci-queue))))
+     (should (equal emaci-history (list (cons "testqueue" (list "dummy" job)))))
+     (should (equal emaci-queue (list (cons "testqueue" nil)))))))
+
+(ert-deftest job-finished-default ()
+  "Test job finished with default job"
+  (with-sandbox
+   (let* ((emaci-history (list (cons "*default*" (list "dummy"))))
+          (job (default-test-job))
+          (emaci-queue (list (cons "*default*" (list job)))))
+     (emaci//job-finished job 'finished "finished\n")
+     (should (eq (emaci-job-status job) 'finished))
+     (should (equal (emaci-job-statusmsg job) "finished\n"))
+     (should (equal emaci-history (list (cons "*default*" (list "dummy" job)))))
+     (should (equal emaci-queue (list (cons "*default*" nil)))))))
 
 (ert-deftest execute-next-empty-queue ()
-  "Test execute-next with empty."
+  "Test execute-next with empty queue."
+  (with-sandbox
+   (emaci/execute-next "testqueue")))
+
+(ert-deftest execute-next-empty-default-queue ()
+  "Test execute-next with empty default queue."
   (with-sandbox
    (emaci/execute-next)))
 
@@ -471,7 +542,17 @@ BODY is the actual test."
   (with-sandbox
    (let ((job (test-job)))
      (setf (emaci-job-status job) 'running)
-     (add-to-list 'emaci-queue job)
+     (setq emaci-queue (list (cons "testqueue" (list job))))
+     (should (eq (cdr (should-error (emaci/execute-next "testqueue")
+                                    :type 'emaci-error-job-running))
+                 job)))))
+
+(ert-deftest execute-next-running-default ()
+  "Test execute-next with running job and default queue."
+  (with-sandbox
+   (let ((job (default-test-job)))
+     (setf (emaci-job-status job) 'running)
+     (setq emaci-queue (list (cons "*default*" (list job))))
      (should (eq (cdr (should-error (emaci/execute-next)
                                     :type 'emaci-error-job-running))
                  job)))))
@@ -482,41 +563,41 @@ BODY is the actual test."
    (let (emaci//execute-called-p)
      (with-advice
       (emaci//execute
-       (lambda (orig-fun job) (assert-job job 1 'queued nil nil "~" "echo Tis but a scratch" 'comint-mode "$.*^")
+       (lambda (orig-fun job) (assert-job job "testqueue" 1 'queued nil nil "~" "echo Tis but a scratch" 'comint-mode "$.*^")
          (setq emaci//execute-called-p t)))
       (let ((job (test-job)))
-        (add-to-list 'emaci-queue job)
-        (emaci/execute-next)
+        (setq emaci-queue (list (cons "testqueue" (list job))))
+        (emaci/execute-next "testqueue")
         (should emaci//execute-called-p))))))
 
 (ert-deftest create-buffer-name ()
   "Test creating buffer names"
   (with-sandbox
-   (should (equal (emaci//create-buffer-name (test-job)) "Build #1"))))
+   (should (equal (emaci//create-buffer-name (test-job)) "testqueue: Build #1"))))
 
 (ert-deftest create-buffer ()
   "Test creating buffer names"
   (with-sandbox
    (let ((job (test-job)))
-    (should (equal (emaci//create-buffer job) (get-buffer "Build #1")))
-    (should (get-buffer "Build #1"))
+    (should (equal (emaci//create-buffer job) (get-buffer "testqueue: Build #1")))
+    (should (get-buffer "testqueue: Build #1"))
     (should
      (equal
       emaci--buffer-job-alist
-      (list (cons (get-buffer "Build #1") job)))))))
+      (list (cons (get-buffer "testqueue: Build #1") job)))))))
 
 (defun assert-execute-job ()
   (assert-job
-   (car emaci-history) 1 'finished "finished\n" (get-buffer "Build #1")
+   (cadr (assoc "testqueue" emaci-history)) "testqueue" 1 'finished "finished\n" (get-buffer "testqueue: Build #1")
    "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
 
 (ert-deftest-async
  execute (assert-execute-job)
- (let* ((job (test-job))
-        (emaci-queue (list job)))
+ (let ((job (test-job)))
+   (setq emaci-queue (list (cons "testqueue" (list job))))
    (emaci//execute job)
    (assert-job
-    (car emaci-queue) 1 'running nil (get-buffer "Build #1")
+    (cadr (assoc "testqueue" emaci-queue)) "testqueue" 1 'running nil (get-buffer "testqueue: Build #1")
     "~" "echo Tis but a scratch" 'comint-mode "$.*^")))
 
 ;;; test-emaci.el ends here
