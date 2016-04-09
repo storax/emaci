@@ -32,6 +32,8 @@
 (defvar ert-async-timeout 10
   "Number of seconds to wait for callbacks before failing.")
 
+(setq emaci-save-dir (make-temp-file "emaci" t))
+
 (ert-deftest comp-finished-hook ()
     "Test if hook is installed"
     (should (member 'emaci//compilation-finished compilation-finish-functions)))
@@ -39,9 +41,9 @@
 (defmacro with-sandbox (&rest body)
   "Evaluate BODY with all variables let bound."
   `(let ((emaci-queue nil)
-        (emaci-history nil)
-        (emaci--buffer-job-alist nil)
-        (emaci--build-counter nil))
+         (emaci-history nil)
+         (emaci--buffer-job-alist nil)
+         (emaci--build-counter nil))
      ,@body))
 
 (defmacro with-advice (args &rest body)

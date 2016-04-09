@@ -28,6 +28,18 @@
 
 (eval-when-compile (require 'cl-lib))
 
+(defgroup emaci nil
+  "Customization group for emaci."
+  :prefix "emaci-"
+  :group 'emacs
+  :package-version '(emaci . "0.1"))
+
+(defcustom emaci-save-dir "~/.emaci/"
+   "Directory where emaci saves history and logs."
+   :type 'string
+   :group 'emaci
+   :package-version '(emaci . "0.1"))
+
 (cl-defstruct emaci-job buildno queue status statusmsg datecreated datefinished buffer dir command mode highlight-regexp)
 
 (defvar emaci-queue nil
@@ -139,6 +151,7 @@ Calls `emaci//job-finished'."
   (setf (emaci-job-statusmsg job) statusmsg)
   (setf (emaci-job-datefinished job) (current-time))
   (emaci//move-job-to-history job)
+  (emaci//save-vars)
   (emaci/execute-next (emaci-job-queue job)))
 
 (defun emaci/execute-next (&optional queue)
@@ -215,6 +228,34 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
         (setf (cdr (assoc queue emaci-history)) (append (cdr (assoc queue emaci-history)) (list job)))
       (add-to-list 'emaci-history (cons queue (list job))))
     (setf (cdr (assoc queue emaci-queue)) (delete job (cdr (assoc queue emaci-queue))))))
+
+(defun emaci//save-var (var file)
+  "Save the given VAR to FILE in `emaci-save-dir'."
+  (let* ((expanded
+          (directory-file-name
+           (expand-file-name emaci-save-dir))))
+    (make-directory expanded t)
+    (with-temp-buffer
+      (prin1 (symbol-value var) (current-buffer))
+      (write-file (concat (file-name-as-directory expanded) file)))))
+
+(defun emaci//save-history ()
+  "Save the history to file."
+  (emaci//save-var 'emaci-history "history.el"))
+
+(defun emaci//save-queue ()
+  "Save the queue to file."
+  (emaci//save-var 'emaci-queue "queue.el"))
+
+(defun emaci//save-build-counter ()
+  "Save the build-counter to file."
+  (emaci//save-var 'emaci--build-counter "build-counter.el"))
+
+(defun emaci//save-vars ()
+  "Save history, queue and other variables to the `emaci-save-dir'"
+  (emaci//save-history)
+  (emaci//save-queue)
+  (emaci//save-build-counter))
 
 (defun emaci/get-dir-command ()
   "Interactively return a directory and a command for emaci."
