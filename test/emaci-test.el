@@ -623,7 +623,7 @@ BODY is the actual test."
        (setq emaci-history nil
              emaci-queue nil
              emaci--build-counter nil)
-       (emaci//load-vars)
+       (emaci/load-vars)
        (should (equal (type-of emaci-queue) (type-of old-queue)))
        (should (equal emaci-queue old-queue))
        (should (equal emaci-history old-history))
@@ -634,7 +634,7 @@ BODY is the actual test."
   (with-sandbox
    (let ((emaci-save-dir "/NONEXISTENTDIRECTORY/")
          (emaci-queue t))
-     (emaci//load-vars)
+     (emaci/load-vars)
      (should emaci-queue))))
 
 ;;; test-emaci.el ends here

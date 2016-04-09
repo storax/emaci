@@ -23,12 +23,12 @@ Features
 * Send commands from the command line
 * Cancel/Kill Jobs
 * Multiple queues
+* Permanent build history and logs
 
 -------
 Roadmap
 -------
 
-* Permanent build history
 * Select git branches and stashes for each build
 * Build Management buffer
 * Translate zsh function to bash
@@ -51,6 +51,10 @@ Jobs are queued in ``emaci-queue`` and archived in ``emaci-history``.
 You can cancel or kill the currently running job
 with ``emaci/cancel-job`` or ``emaci/kill-job``. If there are more jobs in the queue,
 you have to restart the queue by calling ``emaci/execute-next``.
+
+The output, queue and history is saved to the ``emaci-save-dir`` directory.
+To load them execute ``(emaci/load-vars)`` after setting ``emaci-save-dir``.
+``emaci-save-dir`` defaults to ``"~/.emaci/"``.
 
 ----
 Why?

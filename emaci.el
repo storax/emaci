@@ -301,7 +301,7 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
   "Load the build-counter from file."
   (emaci//load-var 'emaci--build-counter "build-counter.el"))
 
-(defun emaci//load-vars ()
+(defun emaci/load-vars ()
   "Load history, queue and other variables from `emaci-save-dir'."
   (emaci//load-history)
   (emaci//load-queue)
