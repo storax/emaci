@@ -145,24 +145,27 @@ Calls `emaci//job-finished'."
     (when job
       (emaci//job-finished job 'finished msg))))
 
+(defun emaci//get-log-filepath (job)
+  "Return filepath to a file for the output of JOB."
+  (let* ((expanded
+          (directory-file-name
+           (expand-file-name emaci-save-dir)))
+         (directory (directory-file-name
+                     (concat (file-name-as-directory expanded)
+                             (file-name-as-directory "logs")
+                             (file-name-as-directory (emaci-job-queue job)))))
+         (fullpath (concat (file-name-as-directory directory)
+                           (format "build_%04d.log" (emaci-job-buildno job)))))
+    (make-directory directory t)
+    fullpath))
+
 (defun emaci//save-log (job)
   "Save the output of the given job."
   (let ((buffer (emaci-job-buffer job)))
     (when buffer
       (with-current-buffer buffer
-        (let* ((expanded
-                (directory-file-name
-                 (expand-file-name emaci-save-dir)))
-               (directory (directory-file-name
-                           (concat (file-name-as-directory expanded)
-                                   (file-name-as-directory "logs")
-                                   (file-name-as-directory (emaci-job-queue job)))))
-               (fullpath (concat (file-name-as-directory directory)
-                                 (format "build_%04d.log" (emaci-job-buildno job)))))
-          (make-directory directory t)
           (save-excursion
-            (goto-char (point-min))
-            (write-file fullpath)))))))
+            (write-region (point-min) (point-max) (emaci//get-log-filepath job)))))))
 
 (defun emaci//job-finished (job status statusmsg)
   "Callback when JOB finished with STATUS and STATUSMSG and execute the next."

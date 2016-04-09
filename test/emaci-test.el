@@ -608,6 +608,22 @@ BODY is the actual test."
     (cadr (assoc "testqueue" emaci-queue)) "testqueue" 1 'running nil "testqueue: Build #1"
     "~" "echo Tis but a scratch" 'comint-mode "$.*^")))
 
+(defun assert-log ()
+  (let* ((job (cadr (assoc "testqueue" emaci-history)))
+         (buffer (get-buffer (emaci-job-buffer job)))
+         (output (with-current-buffer buffer (buffer-string)))
+         (fullpath (emaci//get-log-filepath job)))
+    (should (equal output
+                   (with-temp-buffer
+                     (insert-file-contents (emaci//get-log-filepath job))
+                     (buffer-string))))))
+
+(ert-deftest-async
+ log (assert-log)
+ (let ((job (test-job)))
+   (setq emaci-queue (list (cons "testqueue" (list job))))
+   (emaci//execute job)))
+
 (ert-deftest peristent ()
   "Test persistent variables."
   (with-sandbox
