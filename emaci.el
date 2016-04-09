@@ -145,6 +145,25 @@ Calls `emaci//job-finished'."
     (when job
       (emaci//job-finished job 'finished msg))))
 
+(defun emaci//save-log (job)
+  "Save the output of the given job."
+  (let ((buffer (emaci-job-buffer job)))
+    (when buffer
+      (with-current-buffer buffer
+        (let* ((expanded
+                (directory-file-name
+                 (expand-file-name emaci-save-dir)))
+               (directory (directory-file-name
+                           (concat (file-name-as-directory expanded)
+                                   (file-name-as-directory "logs")
+                                   (file-name-as-directory (emaci-job-queue job)))))
+               (fullpath (concat (file-name-as-directory directory)
+                                 (format "build_%04d.log" (emaci-job-buildno job)))))
+          (make-directory directory t)
+          (save-excursion
+            (goto-char (point-min))
+            (write-file fullpath)))))))
+
 (defun emaci//job-finished (job status statusmsg)
   "Callback when JOB finished with STATUS and STATUSMSG and execute the next."
   (setf (emaci-job-status job) status)
@@ -152,6 +171,7 @@ Calls `emaci//job-finished'."
   (setf (emaci-job-datefinished job) (current-time))
   (emaci//move-job-to-history job)
   (emaci//save-vars)
+  (emaci//save-log job)
   (emaci/execute-next (emaci-job-queue job)))
 
 (defun emaci/execute-next (&optional queue)
@@ -231,9 +251,9 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
 
 (defun emaci//save-var (var file)
   "Save the given VAR to FILE in `emaci-save-dir'."
-  (let* ((expanded
-          (directory-file-name
-           (expand-file-name emaci-save-dir))))
+  (let ((expanded
+         (directory-file-name
+          (expand-file-name emaci-save-dir))))
     (make-directory expanded t)
     (with-temp-buffer
       (prin1 (symbol-value var) (current-buffer))

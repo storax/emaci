@@ -43,7 +43,8 @@
   `(let ((emaci-queue nil)
          (emaci-history nil)
          (emaci--buffer-job-alist nil)
-         (emaci--build-counter nil))
+         (emaci--build-counter nil)
+         (emaci-save-dir (make-temp-file "emaci" t)))
      ,@body))
 
 (defmacro with-advice (args &rest body)
@@ -97,6 +98,7 @@ BODY is the actual test."
              (emaci-history nil)
              (emaci--buffer-job-alist nil)
              (emaci--build-counter nil)
+             (emaci-save-dir (make-temp-file "emaci" t))
              (compilation-finish-functions (list 'emaci//compilation-finished)))
          (setq compilation-finish-functions (append compilation-finish-functions callbacks))
          (with-timeout
