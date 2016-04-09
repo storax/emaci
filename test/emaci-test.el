@@ -606,4 +606,33 @@ BODY is the actual test."
     (cadr (assoc "testqueue" emaci-queue)) "testqueue" 1 'running nil "testqueue: Build #1"
     "~" "echo Tis but a scratch" 'comint-mode "$.*^")))
 
+(ert-deftest peristent ()
+  "Test persistent variables."
+  (with-sandbox
+   (let ((job (test-job))
+         (job2 (test-job)))
+     (emaci//queue-job job)
+     (emaci//queue-job job2)
+     (emaci//move-job-to-history job2)
+     (emaci//save-vars)
+     (let ((old-history emaci-history)
+           (old-queue emaci-queue)
+           (old-build-counter emaci--build-counter))
+       (setq emaci-history nil
+             emaci-queue nil
+             emaci--build-counter nil)
+       (emaci//load-vars)
+       (should (equal (type-of emaci-queue) (type-of old-queue)))
+       (should (equal emaci-queue old-queue))
+       (should (equal emaci-history old-history))
+       (should (equal emaci--build-counter old-build-counter))))))
+
+(ert-deftest load-empty ()
+  "Test loading non-existent variables."
+  (with-sandbox
+   (let ((emaci-save-dir "/NONEXISTENTDIRECTORY/")
+         (emaci-queue t))
+     (emaci//load-vars)
+     (should emaci-queue))))
+
 ;;; test-emaci.el ends here

@@ -252,10 +252,40 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
   (emaci//save-var 'emaci--build-counter "build-counter.el"))
 
 (defun emaci//save-vars ()
-  "Save history, queue and other variables to the `emaci-save-dir'"
+  "Save history, queue and other variables to the `emaci-save-dir'."
   (emaci//save-history)
   (emaci//save-queue)
   (emaci//save-build-counter))
+
+(defun emaci//load-var (var file)
+  "Load the given VAR from FILE in `emaci-load-dir'."
+  (let* ((expanded
+          (directory-file-name
+           (expand-file-name emaci-save-dir)))
+         (fullpath (concat (file-name-as-directory expanded) file)))
+    (when (file-exists-p fullpath)
+      (with-temp-buffer
+        (insert-file-contents fullpath)
+        (goto-char (point-min))
+        (set var (read (current-buffer)))))))
+
+(defun emaci//load-history ()
+  "Load the history from file."
+  (emaci//load-var 'emaci-history "history.el"))
+
+(defun emaci//load-queue ()
+  "Load the queue from file."
+  (emaci//load-var 'emaci-queue "queue.el"))
+
+(defun emaci//load-build-counter ()
+  "Load the build-counter from file."
+  (emaci//load-var 'emaci--build-counter "build-counter.el"))
+
+(defun emaci//load-vars ()
+  "Load history, queue and other variables from `emaci-save-dir'."
+  (emaci//load-history)
+  (emaci//load-queue)
+  (emaci//load-build-counter))
 
 (defun emaci/get-dir-command ()
   "Interactively return a directory and a command for emaci."
