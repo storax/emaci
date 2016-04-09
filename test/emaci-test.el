@@ -320,7 +320,7 @@ BODY is the actual test."
 (defun assert-history-one-default ()
   (assert-job
    (cadr (assoc "*default*" emaci-history))
-   "*default*" 1 'finished "finished\n" (get-buffer "*default*: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+   "*default*" 1 'finished "finished\n" "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-history-default (assert-history-one-default)
@@ -329,7 +329,7 @@ BODY is the actual test."
 (defun assert-history-one-queue ()
   (assert-job
    (cadr (assoc "testqueue" emaci-history))
-   "testqueue" 1 'finished "finished\n" (get-buffer "testqueue: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+   "testqueue" 1 'finished "finished\n" "testqueue: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-history-queue (assert-history-one-queue)
@@ -354,14 +354,14 @@ BODY is the actual test."
  (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
  (assert-job
   (cadr (assoc "*default*" emaci-queue))
-  "*default*" 1 'running nil (get-buffer "*default*: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+  "*default*" 1 'running nil "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-running ()
  (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'")
  (assert-job
   (cadr (assoc "testqueue" emaci-queue))
-  "testqueue" 1 'running nil (get-buffer "testqueue: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+  "testqueue" 1 'running nil "testqueue: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-two-first-default ()
@@ -369,7 +369,7 @@ BODY is the actual test."
  (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
  (assert-job
   (cadr (assoc "*default*" emaci-queue))
-  "*default*" 1 'running nil (get-buffer "*default*: Build #1") "~" "echo 'Come on, you pansy!'" nil nil))
+  "*default*" 1 'running nil "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-two-second-default ()
@@ -404,6 +404,7 @@ BODY is the actual test."
   (with-sandbox
    (let ((job (test-job))
          (job2 (test-job)))
+     (setf (emaci-job-buffer job2) (buffer-name (emaci//create-buffer job2)))
      (emaci//queue-job job)
      (emaci//queue-job job2)
      (setf (emaci-job-status job2) 'running)
@@ -443,6 +444,7 @@ BODY is the actual test."
   (with-sandbox
    (let ((job (test-job))
          (job2 (test-job)))
+     (setf (emaci-job-buffer job2) (buffer-name (emaci//create-buffer job2)))
      (emaci//queue-job job)
      (emaci//queue-job job2)
      (setf (emaci-job-status job2) 'running)
@@ -472,6 +474,8 @@ BODY is the actual test."
 (defmacro with-double-running-queue (&rest body)
   "Execute body with a queue with two running jobs."
   `(with-sandbox
+    (get-buffer-create "some buffer")
+    (get-buffer-create "test buffer")
     (let* ((emaci-queue
             (list
              (cons
@@ -479,11 +483,11 @@ BODY is the actual test."
               (list
                (make-emaci-job
                    :buildno 1 :status 'running :statusmsg nil
-                   :buffer (get-buffer-create "test buffer") :dir "~"
+                   :buffer "test buffer" :dir "~"
                    :command "echo test1" :mode nil :highlight-regexp nil)
                   (make-emaci-job
                    :buildno 2 :status 'running :statusmsg nil
-                   :buffer (get-buffer-create "some buffer") :dir "~"
+                   :buffer "some buffer" :dir "~"
                    :command "echo test2" :mode nil :highlight-regexp nil)))))
            (emaci--buffer-job-alist
             (list (cons (get-buffer-create "some buffer") (cadr (assoc "testqueue" emaci-queue))))))
@@ -588,7 +592,7 @@ BODY is the actual test."
 
 (defun assert-execute-job ()
   (assert-job
-   (cadr (assoc "testqueue" emaci-history)) "testqueue" 1 'finished "finished\n" (get-buffer "testqueue: Build #1")
+   (cadr (assoc "testqueue" emaci-history)) "testqueue" 1 'finished "finished\n" "testqueue: Build #1"
    "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
 
 (ert-deftest-async
@@ -597,7 +601,7 @@ BODY is the actual test."
    (setq emaci-queue (list (cons "testqueue" (list job))))
    (emaci//execute job)
    (assert-job
-    (cadr (assoc "testqueue" emaci-queue)) "testqueue" 1 'running nil (get-buffer "testqueue: Build #1")
+    (cadr (assoc "testqueue" emaci-queue)) "testqueue" 1 'running nil "testqueue: Build #1"
     "~" "echo Tis but a scratch" 'comint-mode "$.*^")))
 
 ;;; test-emaci.el ends here

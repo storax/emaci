@@ -167,7 +167,7 @@ Calls `emaci//job-finished'."
 (defun emaci//execute (job)
   "Execute the next JOB."
   (setf (emaci-job-status job) 'running)
-  (setf (emaci-job-buffer job) (emaci//create-buffer job))
+  (setf (emaci-job-buffer job) (buffer-name (emaci//create-buffer job)))
   (let ((default-directory (emaci-job-dir job)))
     (compilation-start
      (emaci-job-command job)
@@ -179,7 +179,7 @@ Calls `emaci//job-finished'."
   "Send SIGCODE to JOB.
 
 SIGCODE may be an integer, or a symbol whose name is a signal name."
-  (let* ((job-buffer (emaci-job-buffer job))
+  (let* ((job-buffer (get-buffer (emaci-job-buffer job)))
          (job-status (emaci-job-status job))
          (job-proc (get-buffer-process job-buffer)))
     (when (and job-proc (eq job-status 'running))
