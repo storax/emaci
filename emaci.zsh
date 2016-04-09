@@ -8,4 +8,4 @@
 # emaci './configure && make && make install'
 
 emacienv () { echo -e $(declare -px | awk '{if (NR == 1) printf $0;else if ($0 !~ /^typeset -.*/ && last !~ /^typeset -ax.*/) printf "\\n"$0;else printf " && "$0;}{last=$0}')' && ' }
-emaci () { emacsclient --eval "$(echo "(emaci/submit-job-comint \"$PWD\" \"$(emacienv)cd $PWD && $@\")")" }
+emaci () { emacsclient --eval "$(echo "(emaci/submit-job-comint nil \"$PWD\" \"$(emacienv)cd $PWD && $@\")")" }
