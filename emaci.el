@@ -40,7 +40,7 @@
    :group 'emaci
    :package-version '(emaci . "0.1"))
 
-(cl-defstruct emaci-job buildno queue status statusmsg datecreated datefinished buffer dir command mode highlight-regexp)
+(cl-defstruct emaci-job buildno queue status statusmsg exitcode datecreated datefinished buffer dir command mode highlight-regexp)
 
 (defvar emaci-queue nil
   "An alist of queue names as car and a list of `emaci-job' structs as cdr.
@@ -92,6 +92,7 @@ global value of `compilation-highlight-regexp'."
      :queue queue
      :status 'queued
      :statusmsg nil
+     :exitcode nil
      :datecreated (current-time)
      :datefinished nil
      :buffer nil
@@ -137,11 +138,17 @@ If DEFERRED is non-nil, don't execute the job right away if queue is empty."
     (unless (or (emaci//running-job-p queue) deferred)
       (emaci/execute-next queue))))
 
+(defun storax//compilation-exit-function (status code msg)
+  "Set the exitcode on the job with STATUS exit CODE and MSG."
+  (let ((job (cdr (assoc buffer emaci--buffer-job-alist))))
+    (when job
+      (setf (emaci-job-exitcode job) code))))
+
 (defun emaci//compilation-finished (buffer msg)
   "Callback when compilation buffer finishes in BUFFER with MSG.
 
 Calls `emaci//job-finished'."
-  (let ((job (cdr (assoc buffer emaci--buffer-job-alist))))
+    (let ((job (cdr (assoc buffer emaci--buffer-job-alist))))
     (when job
       (emaci//job-finished job 'finished msg))))
 
