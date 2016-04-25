@@ -8,5 +8,7 @@ env:
   - EVM_EMACS=emacs-24.4-travis
   - EVM_EMACS=emacs-24.5-travis
 script:
+  - git config --global user.name "David Zuber"
+  - git config --global user.email zuber.david@gmx.de
   - emacs --version
   - make test
