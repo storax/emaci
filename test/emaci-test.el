@@ -27,13 +27,14 @@
   (undercover "*.el"))
 
 (require 'cl-lib)
+(require 'vc-git)
 (require 'emaci)
 
 (defvar ert-async-timeout 10
   "Number of seconds to wait for callbacks before failing.")
 
-(defvar emaci-test-repo (getenv "EMACI_TESTGITDIR"))
-(defvar emaci-test-empty-repo (getenv "EMACI_TESTGITDIR2"))
+(defvar emaci-test-repo (file-name-as-directory (getenv "EMACI_TESTGITDIR")))
+(defvar emaci-test-empty-repo (file-name-as-directory (getenv "EMACI_TESTGITDIR2")))
 
 (defmacro with-repo (&rest body)
   "Evaluate BODY with `emaci-test-repo' as default directory."
@@ -49,6 +50,11 @@
   "Evaluate BODY with / as default directory."
   `(let ((default-directory "/"))
      ,@body))
+
+(defvar emaci-commit-1 (with-repo (vc-git--rev-parse "HEAD")))
+(defvar emaci-stashes (with-repo
+                       (list
+                        (vc-git--run-command-string nil "stash" "list" "--pretty=format:%H"))))
 
 (defun tmp-save-dir ()
   (make-temp-file (concat (file-name-as-directory (getenv "EMACI_SAVEDIR")) "emaci") t))
@@ -688,5 +694,42 @@ BODY is the actual test."
          (emaci-queue t))
      (emaci/load-vars)
      (should emaci-queue))))
+
+(ert-deftest get-stashes ()
+  (with-repo
+   (should (equal (emaci//stashes) emaci-stashes))))
+
+(ert-deftest get-stashes-no-repo ()
+  (with-no-repo
+   (should-not (emaci//stashes))))
+
+(ert-deftest get-stashes-no-stashes ()
+  (with-empty-repo
+   (should-not (emaci//stashes))))
+
+(ert-deftest get-current-commit ()
+  (with-repo
+   (should (equal (emaci//current-commit) emaci-commit-1))))
+
+(ert-deftest get-current-commit-no-repo ()
+  (with-no-repo
+   (should-not (emaci//current-commit))))
+
+(ert-deftest get-current-commit-empty-repo ()
+  (with-empty-repo
+   (should-not (emaci//current-commit))))
+
+(ert-deftest get-branches ()
+  (with-repo
+   (message default-directory)
+   (should (equal (emaci//branches) (list "master" "branch1")))))
+
+(ert-deftest get-branches-no-repo ()
+  (with-no-repo
+   (should-not (emaci//branches))))
+
+(ert-deftest get-branches-empty-repo ()
+  (with-empty-repo
+   (should-not (emaci//branches))))
 
 ;;; test-emaci.el ends here
