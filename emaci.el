@@ -220,6 +220,24 @@ Calls `emaci//job-finished'."
      `(lambda (mode) (emaci//create-buffer-name ,job))
      (emaci-job-highlight-regexp job))))
 
+(defun emaci//stashes ()
+  "Return a list of stashes."
+  (let ((stashesstr (vc-git--run-command-string nil "stash" "list" "--pretty=format:%H")))
+    (if (or (not stashesstr) (equal "" stashesstr))
+        nil
+      (split-string stashesstr "\n"))))
+
+(defun emaci//current-commit ()
+  "Return the current commit."
+  (vc-git--rev-parse "HEAD"))
+
+(defun emaci//branches ()
+  "Return a list with all branches."
+  (let ((branches (vc-git-branches)))
+    (if (car branches)
+        branches
+      nil)))
+
 (defun emaci//signal-job (sigcode job)
   "Send SIGCODE to JOB.
 
