@@ -238,6 +238,11 @@ Calls `emaci//job-finished'."
         branches
       nil)))
 
+(defun emaci//switch-to-branch (branch &optional directory)
+  "Switch to BRANCH."
+  (when (vc-git-responsible-p (or directory default-directory))
+    (vc-git-checkout nil nil branch)))
+
 (defun emaci//signal-job (sigcode job)
   "Send SIGCODE to JOB.
 

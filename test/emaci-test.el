@@ -721,7 +721,6 @@ BODY is the actual test."
 
 (ert-deftest get-branches ()
   (with-repo
-   (message default-directory)
    (should (equal (emaci//branches) (list "master" "branch1")))))
 
 (ert-deftest get-branches-no-repo ()
@@ -731,5 +730,25 @@ BODY is the actual test."
 (ert-deftest get-branches-empty-repo ()
   (with-empty-repo
    (should-not (emaci//branches))))
+
+(ert-deftest switch-branch ()
+  (with-repo
+   (emaci//switch-to-branch "branch1")
+   (let ((branch (car (emaci//branches))))
+     (emaci//switch-to-branch "master")
+     (should (equal branch "branch1")))))
+
+(ert-deftest switch-branch-no-repo ()
+  (with-no-repo
+   (emaci//switch-to-branch "branch1")
+   (should-not (emaci//branches))))
+
+(ert-deftest switch-branch-commit ()
+  (with-repo
+   (emaci//switch-to-branch "branch1")
+   (emaci//switch-to-branch emaci-commit-1)
+   (let ((commit (emaci//current-commit)))
+     (emaci//switch-to-branch "master")
+     (should (equal commit emaci-commit-1)))))
 
 ;;; test-emaci.el ends here
