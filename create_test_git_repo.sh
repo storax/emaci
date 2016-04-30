@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+cd $EMACI_TESTGITDIR2
+git init
 cd $EMACI_TESTGITDIR
 git init
 echo "file1" > file1.txt

@@ -32,7 +32,28 @@
 (defvar ert-async-timeout 10
   "Number of seconds to wait for callbacks before failing.")
 
-(setq emaci-save-dir (make-temp-file "emaci" t))
+(defvar emaci-test-repo (getenv "EMACI_TESTGITDIR"))
+(defvar emaci-test-empty-repo (getenv "EMACI_TESTGITDIR2"))
+
+(defmacro with-repo (&rest body)
+  "Evaluate BODY with `emaci-test-repo' as default directory."
+  `(let ((default-directory emaci-test-repo))
+     ,@body))
+
+(defmacro with-empty-repo (&rest body)
+  "Evaluate BODY with `emaci-test-empty-repo' as default directory."
+  `(let ((default-directory emaci-test-empty-repo))
+     ,@body))
+
+(defmacro with-no-repo (&rest body)
+  "Evaluate BODY with / as default directory."
+  `(let ((default-directory "/"))
+     ,@body))
+
+(defun tmp-save-dir ()
+  (make-temp-file (concat (file-name-as-directory (getenv "EMACI_SAVEDIR")) "emaci") t))
+
+(setq emaci-save-dir (tmp-save-dir))
 
 (ert-deftest comp-finished-hook ()
     "Test if hook is installed"
@@ -44,7 +65,7 @@
          (emaci-history nil)
          (emaci--buffer-job-alist nil)
          (emaci--build-counter nil)
-         (emaci-save-dir (make-temp-file "emaci" t)))
+         (emaci-save-dir (tmp-save-dir)))
      ,@body
      (delete-directory emaci-save-dir t)))
 
@@ -99,7 +120,7 @@ BODY is the actual test."
              (emaci-history nil)
              (emaci--buffer-job-alist nil)
              (emaci--build-counter nil)
-             (emaci-save-dir (make-temp-file "emaci" t))
+             (emaci-save-dir (tmp-save-dir))
              (compilation-finish-functions (list 'emaci//compilation-finished)))
          (setq compilation-finish-functions (append compilation-finish-functions callbacks))
          (with-timeout
