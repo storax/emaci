@@ -40,7 +40,9 @@
    :group 'emaci
    :package-version '(emaci . "0.1"))
 
-(cl-defstruct emaci-job buildno queue status statusmsg exitcode datecreated datefinished buffer dir command mode highlight-regexp)
+(cl-defstruct emaci-job
+  buildno queue status statusmsg exitcode datecreated datefinished
+  oldref ref stashes buffer dir command mode highlight-regexp)
 
 (defvar emaci-queue nil
   "An alist of queue names as car and a list of `emaci-job' structs as cdr.

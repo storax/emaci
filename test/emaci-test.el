@@ -155,15 +155,17 @@ BODY is the actual test."
   "Create a test job."
   (emaci//new-job nil "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
 
-
 (defun assert-job
-    (job queue buildno status statusmsg code buffer dir command mode highlight-regexp)
+    (job queue buildno status statusmsg code oldref ref stashes buffer dir command mode highlight-regexp)
   "Assert job has right attributes."
   (should (equal (emaci-job-queue job) queue))
   (should (equal (emaci-job-buildno job) buildno))
   (should (equal (emaci-job-status job) status))
   (should (equal (emaci-job-statusmsg job) statusmsg))
   (should (equal (emaci-job-exitcode job) code))
+  (should (equal (emaci-job-oldref job) oldref))
+  (should (equal (emaci-job-ref job) ref))
+  (should (equal (emaci-job-stashes job) stashes))
   (should (equal (emaci-job-buffer job) buffer))
   (should (equal (emaci-job-dir job) dir))
   (should (equal (emaci-job-command job) command))
@@ -327,7 +329,8 @@ BODY is the actual test."
 (defun assert-history-one-default ()
   (assert-job
    (cadr (assoc "*default*" emaci-history))
-   "*default*" 1 'finished "finished\n" nil "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
+   "*default*" 1 'finished "finished\n" nil nil nil nil
+   "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-history-default (assert-history-one-default)
@@ -336,7 +339,8 @@ BODY is the actual test."
 (defun assert-history-one-queue ()
   (assert-job
    (cadr (assoc "testqueue" emaci-history))
-   "testqueue" 1 'finished "finished\n" nil "testqueue: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
+   "testqueue" 1 'finished "finished\n" nil nil nil nil
+   "testqueue: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-history-queue (assert-history-one-queue)
@@ -361,14 +365,16 @@ BODY is the actual test."
  (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
  (assert-job
   (cadr (assoc "*default*" emaci-queue))
-  "*default*" 1 'running nil nil "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
+  "*default*" 1 'running nil nil nil nil nil
+  "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-running ()
  (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'")
  (assert-job
   (cadr (assoc "testqueue" emaci-queue))
-  "testqueue" 1 'running nil nil "testqueue: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
+  "testqueue" 1 'running nil nil nil nil nil
+  "testqueue: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-two-first-default ()
@@ -376,7 +382,8 @@ BODY is the actual test."
  (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
  (assert-job
   (cadr (assoc "*default*" emaci-queue))
-  "*default*" 1 'running nil nil "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
+  "*default*" 1 'running nil nil nil nil nil
+  "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
  schedule-two-second-default ()
@@ -384,7 +391,8 @@ BODY is the actual test."
  (emaci//schedule nil "~" "echo 'Come on, you pansy!'")
  (assert-job
   (nth 1 (cdr (assoc "*default*" emaci-queue)))
-  "*default*" 2 'queued nil nil nil "~" "echo 'Come on, you pansy!'" nil nil))
+  "*default*" 2 'queued nil nil nil nil nil nil
+  "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest schedule-deferred ()
   "Test queuing with DEFERRED arg."
@@ -392,7 +400,8 @@ BODY is the actual test."
    (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'" nil nil t)
    (assert-job
     (cadr (assoc "testqueue" emaci-queue))
-    "testqueue" 1 'queued nil nil nil "~" "echo 'Come on, you pansy!'" nil nil)))
+    "testqueue" 1 'queued nil nil nil nil nil nil
+    "~" "echo 'Come on, you pansy!'" nil nil)))
 
 (ert-deftest cancel-queued ()
   "Test canceling a queued job."
@@ -575,7 +584,8 @@ BODY is the actual test."
    (let (emaci//execute-called-p)
      (with-advice
       (emaci//execute
-       (lambda (orig-fun job) (assert-job job "testqueue" 1 'queued nil nil nil "~" "echo Tis but a scratch" 'comint-mode "$.*^")
+       (lambda (orig-fun job) (assert-job job "testqueue" 1 'queued nil nil nil nil nil
+                                          nil "~" "echo Tis but a scratch" 'comint-mode "$.*^")
          (setq emaci//execute-called-p t)))
       (let ((job (test-job)))
         (setq emaci-queue (list (cons "testqueue" (list job))))
@@ -600,8 +610,8 @@ BODY is the actual test."
 
 (defun assert-execute-job ()
   (assert-job
-   (cadr (assoc "testqueue" emaci-history)) "testqueue" 1 'finished "finished\n" nil "testqueue: Build #1"
-   "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
+   (cadr (assoc "testqueue" emaci-history)) "testqueue" 1 'finished "finished\n"
+   nil nil nil nil "testqueue: Build #1" "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
 
 (ert-deftest-async
  execute (assert-execute-job)
@@ -609,7 +619,8 @@ BODY is the actual test."
    (setq emaci-queue (list (cons "testqueue" (list job))))
    (emaci//execute job)
    (assert-job
-    (cadr (assoc "testqueue" emaci-queue)) "testqueue" 1 'running nil nil "testqueue: Build #1"
+    (cadr (assoc "testqueue" emaci-queue)) "testqueue" 1 'running
+    nil nil nil nil nil "testqueue: Build #1"
     "~" "echo Tis but a scratch" 'comint-mode "$.*^")))
 
 (defun assert-log ()
