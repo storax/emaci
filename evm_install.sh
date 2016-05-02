@@ -17,9 +17,8 @@
 export PATH="/home/travis/.evm/bin:$PATH"
 export PATH="/home/travis/.cask/bin:$PATH"
 
-curl -fsSkL https://gist.github.com/rejeep/ebcd57c3af83b049833b/raw > x.sh && source ./x.sh
 git clone https://github.com/rejeep/evm.git /home/travis/.evm
 evm config path /tmp
-evm install $EVN_EMACS --use --skip
+evm install $EVM_EMACS --use --skip
 
 curl -fsSkL https://raw.github.com/cask/cask/master/go | python
