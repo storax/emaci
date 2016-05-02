@@ -24,6 +24,8 @@
 (require 'ert)
 
 (when (require 'undercover nil t)
+  (require 'edebug)
+  (def-edebug-spec setf (&rest [place form]))
   (undercover "*.el"))
 
 (require 'cl-lib)
