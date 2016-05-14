@@ -55,7 +55,7 @@
   `(let ((default-directory "/"))
      ,@body))
 
-(defvar emaci-commit-1 (with-repo (vc-git--rev-parse "HEAD")))
+(defvar emaci-commit-1 (vc-git-working-revision emaci-test-repo))
 (defvar emaci-stashes (with-repo
                        (list
                         (vc-git--run-command-string nil "stash" "list" "--pretty=format:%H"))))
@@ -720,7 +720,7 @@ BODY is the actual test."
   (should-not (emaci//current-commit "/")))
 
 (ert-deftest get-current-commit-empty-repo ()
-   (should-not (emaci//current-commit emaci-test-empty-repo)))
+   (should (equal (emaci//current-commit emaci-test-empty-repo) "master")))
 
 (ert-deftest get-branches ()
   (should (equal (emaci//branches emaci-test-repo) (list "master" "branch1"))))

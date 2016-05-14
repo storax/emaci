@@ -229,7 +229,7 @@ Calls `emaci//job-finished'."
 (defun emaci//current-commit (dir)
   "Return the current commit of repo in DIR."
   (let ((default-directory dir))
-    (vc-git--rev-parse "HEAD")))
+    (vc-git-working-revision dir)))
 
 (defun emaci//branches (dir)
   "Return a list with all branches of repo in DIR."
