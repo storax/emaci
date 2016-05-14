@@ -181,6 +181,7 @@ Calls `emaci//job-finished'."
   (emaci//move-job-to-history job)
   (emaci//save-vars)
   (emaci//save-log job)
+  (emaci//git-revert job)
   (emaci/execute-next (emaci-job-queue job)))
 
 (defun emaci/execute-next (&optional queue)
@@ -244,6 +245,12 @@ Calls `emaci//job-finished'."
   (let ((default-directory (or dir default-directory)))
     (when (vc-git-responsible-p default-directory)
       (vc-git-checkout nil nil branch))))
+
+(defun emaci//git-revert (job)
+  "Revert repo of JOB to the old status.
+Checkout the branch it was one before the job got executed.
+Revert all stashes that were applied by JOB."
+  (emaci//switch-to-branch (emaci-job-oldref job) (emaci-job-dir job)))
 
 (defun emaci//signal-job (sigcode job)
   "Send SIGCODE to JOB.

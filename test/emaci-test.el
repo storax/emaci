@@ -748,20 +748,26 @@ BODY is the actual test."
      (emaci//switch-to-branch "master" emaci-test-repo)
      (should (equal commit emaci-commit-1))))
 
-(ert-deftest oldref ()
+(ert-deftest oldref-new ()
   (with-sandbox
    (let ((job (emaci//new-job nil emaci-test-repo "exit 0" t nil)))
-     (should (equal (emaci-job-oldref job) emaci-commit-1)))))
+     (should-not (emaci-job-oldref job)))))
 
-(ert-deftest switch-branch-back ()
-  (with-sandbox
-   ))
+(defun assert-oldref ()
+  (assert-job
+   (cadr (assoc "*default*" emaci-history))
+   "*default*" 1 'finished "finished\n" 0 "master" nil nil
+   "*default*: Build #1" emaci-test-repo "git checkout branch1" nil nil))
+
+(ert-deftest-async
+ oldref-executed (assert-oldref)
+ (emaci//schedule nil emaci-test-repo "git checkout branch1"))
 
 (defun assert-master-branch ()
-  (message "asddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
-  (message "WTF!!!!!!! %s" (length (assoc "*default*" emaci-history)))
-  (message "??????????????? %s" (assoc "*default*" emaci-history))
-  (should (equal (emaci-job-exitcode (cadr (assoc "*default*" emaci-history))) 0))
+  (assert-job
+   (cadr (assoc "*default*" emaci-history))
+   "*default*" 1 'finished "finished\n" 0 "master" nil nil
+   "*default*: Build #1" emaci-test-repo "git checkout branch1" nil nil)
   (should (equal (emaci//current-commit emaci-test-repo) emaci-commit-1)))
 
 (ert-deftest-async
