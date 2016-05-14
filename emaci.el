@@ -71,7 +71,7 @@ If QUEUE is not in the counter, it is added to it, starting with 1."
     (let ((count (cdr (assoc queue emaci--build-counter))))
       (setf (cdr (assoc queue emaci--build-counter)) (+ 1 count)))))
 
-(defun emaci//new-job (queue dir command mode highlight-regexp)
+(defun emaci//new-job (queue dir command branch mode highlight-regexp)
   "Create a new job which gets executed in DIR.
 
 The job is created for QUEUE. If QUEUE is nil, use default queue.
@@ -79,6 +79,9 @@ The job is created for QUEUE. If QUEUE is nil, use default queue.
 Run compilation command COMMAND (low level interface).
 If COMMAND starts with a cd command, that becomes the `default-directory'.
 The rest of the arguments are optional; for them, nil means use the default.
+
+BRANCH is a git branch name or a ref. It will be checkout out before
+running COMMAND.
 
 MODE is the major mode to set in the compilation buffer.  Mode
 may also be t meaning use function `compilation-shell-minor-mode'
@@ -95,6 +98,7 @@ global value of `compilation-highlight-regexp'."
      :status 'queued
      :datecreated (current-time)
      :dir dir
+     :ref branch
      :command command
      :mode mode
      :highlight-regexp highlight-regexp)))
@@ -112,7 +116,7 @@ global value of `compilation-highlight-regexp'."
         (setf (cdr (assoc queue emaci-queue)) (append (cdr (assoc queue emaci-queue)) (list job)))
       (add-to-list 'emaci-queue (cons queue (list job))))))
 
-(defun emaci//schedule (queue dir command &optional mode highlight-regexp deferred)
+(defun emaci//schedule (queue dir command &optional branch mode highlight-regexp deferred)
   "Create and schedule a new job.
 
 Schedule the job in QUEUE.
@@ -121,6 +125,9 @@ The job will get executed in DIR.
 Run compilation command COMMAND (low level interface).
 If COMMAND starts with a cd command, that becomes the `default-directory'.
 The rest of the arguments are optional; for them, nil means use the default.
+
+BRANCH is a git branch name or a ref. It will be checkout out before
+running COMMAND.
 
 MODE is the major mode to set in the compilation buffer.  Mode
 may also be t meaning use function `compilation-shell-minor-mode'
@@ -131,7 +138,7 @@ the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'.
 
 If DEFERRED is non-nil, don't execute the job right away if queue is empty."
-  (let ((job (emaci//new-job queue dir command mode highlight-regexp)))
+  (let ((job (emaci//new-job queue dir command branch mode highlight-regexp)))
     (emaci//queue-job job)
     (unless (or (emaci//running-job-p queue) deferred)
       (emaci/execute-next queue))))
@@ -213,6 +220,7 @@ Calls `emaci//job-finished'."
   (setf (emaci-job-oldref job) (emaci//current-commit (emaci-job-dir job)))
   (setf (emaci-job-buffer job) (buffer-name (emaci//create-buffer job)))
   (let ((default-directory (emaci-job-dir job)))
+    (emaci//git-apply job)
     (compilation-start
      (emaci-job-command job)
      (emaci-job-mode job)
@@ -251,6 +259,10 @@ Calls `emaci//job-finished'."
 Checkout the branch it was one before the job got executed.
 Revert all stashes that were applied by JOB."
   (emaci//switch-to-branch (emaci-job-oldref job) (emaci-job-dir job)))
+
+(defun emaci//git-apply (job)
+  "Switch to ref stored in JOB and apply the stashes."
+  (emaci//switch-to-branch (emaci-job-ref job) (emaci-job-dir job)))
 
 (defun emaci//signal-job (sigcode job)
   "Send SIGCODE to JOB.
@@ -351,13 +363,16 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
   (emaci//load-queue)
   (emaci//load-build-counter))
 
-(defun emaci/get-dir-command ()
-  "Interactively return a directory and a command for emaci."
-  (list (read-directory-name
-         "Working directory: "
-         (projectile-project-p)
-         nil t)
-        (read-shell-command "Command: " (car shell-command-history))))
+(defun emaci/get-dir ()
+  "Interactively return a directory."
+  (read-directory-name
+   "Working directory: "
+   (projectile-project-p)
+   nil t))
+
+(defun emaci/get-command ()
+  "Interactively return a command for emaci."
+  (read-shell-command "Command: " (car shell-command-history)))
 
 (defun emaci/list-major-modes ()
   "Returns list of potential major mode names.
@@ -385,36 +400,46 @@ From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major
 
 (defun emaci/select-mode ()
   (interactive)
-  (list
-   (intern
-    (completing-read
-     "Select mode for compilation buffer: "
-     (emaci/list-major-modes)
-     nil t nil emaci-mode-history "comint-mode"))))
+  (intern
+   (completing-read
+    "Select mode for compilation buffer: "
+    (emaci/list-major-modes)
+    nil t nil emaci-mode-history "comint-mode")))
 
 (defun emaci/list-queues ()
   (mapcar 'car emaci-queue))
 
 (defun emaci/select-queue ()
   (interactive)
-  (list
-   (completing-read
-    "Select mode for compilation buffer: "
-    (emaci/list-queues)
-    nil nil nil nil "*default*")))
+  (completing-read
+   "Select mode for compilation buffer: "
+   (emaci/list-queues)
+   nil nil nil nil "*default*"))
 
-(defun emaci/submit-job (queue dir command &optional mode highlight-regexp)
-  (interactive (append
-                (emaci/select-queue)
-                (emaci/get-dir-command)
-                (emaci/select-mode)))
-  (emaci//schedule queue dir command mode highlight-regexp))
+(defun emaci/select-branch (dir)
+  (interactive (list (emaci/get-dir)))
+  (when (vc-git-responsible-p dir)
+    (completing-read
+     "Select git branch: " (emaci//branches dir) nil 'confirm nil nil (emaci//current-commit dir))))
 
-(defun emaci/submit-job-comint (queue dir command &optional highlight-regexp)
-  (interactive (append
-                (emaci/select-queue)
-                (emaci/get-dir-command)))
-  (emaci//schedule queue dir command t highlight-regexp))
+(defun emaci/submit-job (queue dir command &optional branch mode highlight-regexp)
+  (interactive (let ((dir (emaci/get-dir)))
+                 (list
+                  (emaci/select-queue)
+                  dir
+                  (emaci/get-command)
+                  (emaci/select-branch dir)
+                  (emaci/select-mode))))
+  (emaci//schedule queue dir command branch mode highlight-regexp))
+
+(defun emaci/submit-job-comint (queue dir command &optional branch highlight-regexp)
+  (interactive (let ((dir (emaci/get-dir)))
+                 (list
+                  (emaci/select-queue)
+                  dir
+                  (emaci/get-command)
+                  (emaci/select-branch dir))))
+  (emaci//schedule queue dir command branch t highlight-regexp))
 
 (defun emaci/init ()
   "Set callbacks for compilation."
