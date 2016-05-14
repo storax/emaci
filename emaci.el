@@ -139,15 +139,16 @@ If DEFERRED is non-nil, don't execute the job right away if queue is empty."
 
 (defun storax//compilation-exit-function (status code msg)
   "Set the exitcode on the job with STATUS exit CODE and MSG."
-  (let ((job (cdr (assoc buffer emaci--buffer-job-alist))))
+  (let ((job (cdr (assoc (current-buffer) emaci--buffer-job-alist))))
     (when job
-      (setf (emaci-job-exitcode job) code))))
+      (setf (emaci-job-exitcode job) code)))
+  (cons msg code))
 
 (defun emaci//compilation-finished (buffer msg)
   "Callback when compilation buffer finishes in BUFFER with MSG.
 
 Calls `emaci//job-finished'."
-    (let ((job (cdr (assoc buffer emaci--buffer-job-alist))))
+  (let ((job (cdr (assoc buffer emaci--buffer-job-alist))))
     (when job
       (emaci//job-finished job 'finished msg))))
 
@@ -408,7 +409,10 @@ From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major
                 (emaci/get-dir-command)))
   (emaci//schedule queue dir command t highlight-regexp))
 
-(add-hook 'compilation-finish-functions 'emaci//compilation-finished)
+(defun emaci/init ()
+  "Set callbacks for compilation."
+  (setq compilation-exit-message-function 'storax//compilation-exit-function)
+  (add-hook 'compilation-finish-functions 'emaci//compilation-finished))
 
 (provide 'emaci)
 

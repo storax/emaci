@@ -32,6 +32,8 @@
 (require 'vc-git)
 (require 'emaci)
 
+(emaci/init)
+
 (defvar ert-async-timeout 10
   "Number of seconds to wait for callbacks before failing.")
 
@@ -138,8 +140,9 @@ BODY is the actual test."
                                 ,(mapconcat 'symbol-name callbacks " ")
                                 (mapconcat 'symbol-name callbacked " "))))
            ,@body
-           (while (not (equal (sort (mapcar 'symbol-name callbacked) 'string<)
-                              (sort (mapcar 'symbol-name ',callbacks) 'string<)))
+           (while (or (not (equal (sort (mapcar 'symbol-name callbacked) 'string<)
+                                  (sort (mapcar 'symbol-name ',callbacks) 'string<)))
+                      (process-list))
              (accept-process-output nil 0.05))
            (delete-directory emaci-save-dir t))))))
 
@@ -356,9 +359,11 @@ BODY is the actual test."
      (should (emaci//running-job-p)))))
 
 (defun assert-history-one-default ()
+  (should (equal (length (assoc "*default*" emaci-queue)) 1))
+  (should (equal (length (assoc "*default*" emaci-history)) 2))
   (assert-job
    (cadr (assoc "*default*" emaci-history))
-   "*default*" 1 'finished "finished\n" nil nil nil nil
+   "*default*" 1 'finished "finished\n" 0 nil nil nil
    "*default*: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
@@ -366,9 +371,11 @@ BODY is the actual test."
  (emaci//schedule nil "~" "echo 'Come on, you pansy!'"))
 
 (defun assert-history-one-queue ()
+  (should (equal (length (assoc "testqueue" emaci-queue)) 1))
+  (should (equal (length (assoc "testqueue" emaci-history)) 2))
   (assert-job
    (cadr (assoc "testqueue" emaci-history))
-   "testqueue" 1 'finished "finished\n" nil nil nil nil
+   "testqueue" 1 'finished "finished\n" 0 nil nil nil
    "testqueue: Build #1" "~" "echo 'Come on, you pansy!'" nil nil))
 
 (ert-deftest-async
@@ -640,7 +647,7 @@ BODY is the actual test."
 (defun assert-execute-job ()
   (assert-job
    (cadr (assoc "testqueue" emaci-history)) "testqueue" 1 'finished "finished\n"
-   nil nil nil nil "testqueue: Build #1" "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
+   0 nil nil nil "testqueue: Build #1" "~" "echo Tis but a scratch" 'comint-mode "$.*^"))
 
 (ert-deftest-async
  execute (assert-execute-job)
@@ -745,5 +752,20 @@ BODY is the actual test."
   (with-sandbox
    (let ((job (emaci//new-job nil emaci-test-repo "exit 0" t nil)))
      (should (equal (emaci-job-oldref job) emaci-commit-1)))))
+
+(ert-deftest switch-branch-back ()
+  (with-sandbox
+   ))
+
+(defun assert-master-branch ()
+  (message "asddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+  (message "WTF!!!!!!! %s" (length (assoc "*default*" emaci-history)))
+  (message "??????????????? %s" (assoc "*default*" emaci-history))
+  (should (equal (emaci-job-exitcode (cadr (assoc "*default*" emaci-history))) 0))
+  (should (equal (emaci//current-commit emaci-test-repo) emaci-commit-1)))
+
+(ert-deftest-async
+ switch-branch-back (assert-master-branch)
+ (emaci//schedule nil emaci-test-repo "git checkout branch1"))
 
 ;;; test-emaci.el ends here
