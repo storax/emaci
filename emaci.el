@@ -94,7 +94,6 @@ global value of `compilation-highlight-regexp'."
      :queue queue
      :status 'queued
      :datecreated (current-time)
-     :oldref (emaci//current-commit dir)
      :dir dir
      :command command
      :mode mode
@@ -210,6 +209,7 @@ Calls `emaci//job-finished'."
 (defun emaci//execute (job)
   "Execute the next JOB."
   (setf (emaci-job-status job) 'running)
+  (setf (emaci-job-oldref job) (emaci//current-commit (emaci-job-dir job)))
   (setf (emaci-job-buffer job) (buffer-name (emaci//create-buffer job)))
   (let ((default-directory (emaci-job-dir job)))
     (compilation-start
