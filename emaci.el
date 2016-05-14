@@ -93,11 +93,8 @@ global value of `compilation-highlight-regexp'."
      :buildno buildno
      :queue queue
      :status 'queued
-     :statusmsg nil
-     :exitcode nil
      :datecreated (current-time)
-     :datefinished nil
-     :buffer nil
+     :oldref (emaci//current-commit dir)
      :dir dir
      :command command
      :mode mode
@@ -220,28 +217,32 @@ Calls `emaci//job-finished'."
      `(lambda (mode) (emaci//create-buffer-name ,job))
      (emaci-job-highlight-regexp job))))
 
-(defun emaci//stashes ()
-  "Return a list of stashes."
-  (let ((stashesstr (vc-git--run-command-string nil "stash" "list" "--pretty=format:%H")))
+(defun emaci//stashes (dir)
+  "Return a list of stashes of repo in DIR."
+  (let* ((default-directory dir)
+         (stashesstr (vc-git--run-command-string nil "stash" "list" "--pretty=format:%H")))
     (if (or (not stashesstr) (equal "" stashesstr))
         nil
       (split-string stashesstr "\n"))))
 
-(defun emaci//current-commit ()
-  "Return the current commit."
-  (vc-git--rev-parse "HEAD"))
+(defun emaci//current-commit (dir)
+  "Return the current commit of repo in DIR."
+  (let ((default-directory dir))
+    (vc-git--rev-parse "HEAD")))
 
-(defun emaci//branches ()
-  "Return a list with all branches."
-  (let ((branches (vc-git-branches)))
+(defun emaci//branches (dir)
+  "Return a list with all branches of repo in DIR."
+  (let* ((default-directory dir)
+         (branches (vc-git-branches)))
     (if (car branches)
         branches
       nil)))
 
-(defun emaci//switch-to-branch (branch &optional directory)
-  "Switch to BRANCH."
-  (when (vc-git-responsible-p (or directory default-directory))
-    (vc-git-checkout nil nil branch)))
+(defun emaci//switch-to-branch (branch dir)
+  "Switch to BRANCH of repo in DIR."
+  (let ((default-directory (or dir default-directory)))
+    (when (vc-git-responsible-p default-directory)
+      (vc-git-checkout nil nil branch))))
 
 (defun emaci//signal-job (sigcode job)
   "Send SIGCODE to JOB.

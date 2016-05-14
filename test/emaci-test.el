@@ -741,4 +741,9 @@ BODY is the actual test."
      (emaci//switch-to-branch "master" emaci-test-repo)
      (should (equal commit emaci-commit-1))))
 
+(ert-deftest oldref ()
+  (with-sandbox
+   (let ((job (emaci//new-job nil emaci-test-repo "exit 0" t nil)))
+     (should (equal (emaci-job-oldref job) emaci-commit-1)))))
+
 ;;; test-emaci.el ends here
