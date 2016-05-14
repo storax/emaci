@@ -698,59 +698,47 @@ BODY is the actual test."
      (should emaci-queue))))
 
 (ert-deftest get-stashes ()
-  (with-repo
-   (should (equal (emaci//stashes) emaci-stashes))))
+  (should (equal (emaci//stashes emaci-test-repo) emaci-stashes)))
 
 (ert-deftest get-stashes-no-repo ()
-  (with-no-repo
-   (should-not (emaci//stashes))))
+  (should-not (emaci//stashes "/")))
 
 (ert-deftest get-stashes-no-stashes ()
-  (with-empty-repo
-   (should-not (emaci//stashes))))
+  (should-not (emaci//stashes emaci-test-empty-repo)))
 
 (ert-deftest get-current-commit ()
-  (with-repo
-   (should (equal (emaci//current-commit) emaci-commit-1))))
+  (should (equal (emaci//current-commit emaci-test-repo) emaci-commit-1)))
 
 (ert-deftest get-current-commit-no-repo ()
-  (with-no-repo
-   (should-not (emaci//current-commit))))
+  (should-not (emaci//current-commit "/")))
 
 (ert-deftest get-current-commit-empty-repo ()
-  (with-empty-repo
-   (should-not (emaci//current-commit))))
+   (should-not (emaci//current-commit emaci-test-empty-repo)))
 
 (ert-deftest get-branches ()
-  (with-repo
-   (should (equal (emaci//branches) (list "master" "branch1")))))
+  (should (equal (emaci//branches emaci-test-repo) (list "master" "branch1"))))
 
 (ert-deftest get-branches-no-repo ()
-  (with-no-repo
-   (should-not (emaci//branches))))
+  (should-not (emaci//branches "/")))
 
 (ert-deftest get-branches-empty-repo ()
-  (with-empty-repo
-   (should-not (emaci//branches))))
+   (should-not (emaci//branches emaci-test-empty-repo)))
 
 (ert-deftest switch-branch ()
-  (with-repo
-   (emaci//switch-to-branch "branch1")
-   (let ((branch (car (emaci//branches))))
-     (emaci//switch-to-branch "master")
-     (should (equal branch "branch1")))))
+   (emaci//switch-to-branch "branch1" emaci-test-repo)
+   (let ((branch (car (emaci//branches emaci-test-repo))))
+     (emaci//switch-to-branch "master" emaci-test-repo)
+     (should (equal branch "branch1"))))
 
 (ert-deftest switch-branch-no-repo ()
-  (with-no-repo
-   (emaci//switch-to-branch "branch1")
-   (should-not (emaci//branches))))
+   (emaci//switch-to-branch "branch1" "/")
+   (should-not (emaci//branches "/")))
 
 (ert-deftest switch-branch-commit ()
-  (with-repo
-   (emaci//switch-to-branch "branch1")
-   (emaci//switch-to-branch emaci-commit-1)
-   (let ((commit (emaci//current-commit)))
-     (emaci//switch-to-branch "master")
-     (should (equal commit emaci-commit-1)))))
+   (emaci//switch-to-branch "branch1" emaci-test-repo)
+   (emaci//switch-to-branch emaci-commit-1 emaci-test-repo)
+   (let ((commit (emaci//current-commit emaci-test-repo)))
+     (emaci//switch-to-branch "master" emaci-test-repo)
+     (should (equal commit emaci-commit-1))))
 
 ;;; test-emaci.el ends here
