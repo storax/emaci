@@ -25,12 +25,12 @@ Features
 * Multiple queues
 * Permanent build history and logs
 * Select git branch for each build
+* Select stashes for each build
 
 -------
 Roadmap
 -------
 
-* Select stashes for each build
 * Build Management buffer
 * Translate zsh function to bash
 * Metrics
