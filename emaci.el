@@ -623,8 +623,8 @@ See `compilation-start'.  For mode, t will be used."
   "Return the formated QUEUE for the emaci management buffer."
   (let* ((queuename (car queue))
          (queueitems (cdr queue))
-         (historyitems (subseq (cdr (assoc queuename emaci-history))
-                               (* -1 emaci-max-history-len-status)))
+         (historyitems (cl-subseq (cdr (assoc queuename emaci-history))
+                                  (* -1 emaci-max-history-len-status)))
          (jobs (append historyitems queueitems)))
     (format
      "\n%s:\n%s%s\n"
@@ -639,6 +639,9 @@ See `compilation-start'.  For mode, t will be used."
      (mapconcat
       (lambda (job) (emaci//mgmt-buffer-format-job job))
       (reverse jobs) ""))))
+
+(defvar-local emaci--sections nil
+  "Internal list for emaci sections in the management browser.")
 
 (defun emaci//mgmt-buffer-update ()
   "Initialize the management buffer."
@@ -663,9 +666,6 @@ See `compilation-start'.  For mode, t will be used."
              (if (> (length (emaci-section-arglist section)) 1)
                  (add-to-invisibility-spec (cons section t))))
            emaci--sections))))))
-
-(defvar-local emaci--sections nil
-  "Internal list for emaci sections in the management browser.")
 
 (cl-defstruct emaci-section arglist)
 
@@ -704,6 +704,7 @@ SECHIERARCHY is used for the `invisible' property."
     string))
 
 (defun emaci/toggle-section ()
+  "Open and close sections."
   (interactive)
   (let* ((prop (car (get-text-property (point) 'invisible)))
          (arglist (when (emaci-section-p prop) (emaci-section-arglist prop)))
@@ -720,7 +721,7 @@ SECHIERARCHY is used for the `invisible' property."
   (let ((map (make-keymap)))
     (define-key map (kbd "TAB") 'emaci/toggle-section)
     map)
-  "Keymap for emaci major mode")
+  "Keymap for emaci major mode.")
 
 (define-derived-mode emaci-mode special-mode "Emaci"
   "Major mode for emaci management buffer.
