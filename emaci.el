@@ -274,6 +274,13 @@ Calls `emaci//job-finished'."
       (dolist (stash stashes)
         (vc-git-stash-apply stash)))))
 
+(defun emaci//revert-stashes (stashes dir)
+  "Reverse apply stashes to repo in DIR."
+  (let ((default-directory default-directory))
+    (when (vc-git-responsible-p default-directory)
+      (dolist (stash (reverse stashes))
+        (shell-command (format "git stash show -p %s | git apply -R" stash))))))
+
 (defun emaci//git-revert (job)
   "Revert repo of JOB to the old status.
 Checkout the branch it was one before the job got executed.
