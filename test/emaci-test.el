@@ -57,8 +57,7 @@
 
 (defvar emaci-commit-1 (vc-git-working-revision emaci-test-repo))
 (defvar emaci-stashes (with-repo
-                       (list
-                        (vc-git--run-command-string nil "stash" "list" "--pretty=format:%H"))))
+                        (split-string (shell-command-to-string "git stash list --pretty=format:%H"))))
 
 (defun tmp-save-dir ()
   (make-temp-file (concat (file-name-as-directory (getenv "EMACI_SAVEDIR")) "emaci") t))
@@ -792,13 +791,13 @@ BODY is the actual test."
   (assert-job
    (cadr (assoc "*default*" emaci-history))
    "*default*" 1 'finished "finished\n" 0 "master" nil emaci-stashes
-   "*default*: Build #1" emaci-test-repo "cat file4.txt" nil nil)
+   "*default*: Build #1" emaci-test-repo "cat file3.txt || exit 0" nil nil)
   (should (equal (emaci//current-commit emaci-test-repo) "master")))
 
 (ert-deftest-async
  stash-apply (assert-stash-before-execute)
- (should-not (file-exists-p (concat emaci-test-repo "file4.txt")))
- (emaci//schedule nil emaci-test-repo "cat file4.txt" nil emaci-stashes)
- (should (file-exists-p (concat emaci-test-repo "file4.txt"))))
+ (should (file-exists-p (concat emaci-test-repo "file3.txt")))
+ (emaci//schedule nil emaci-test-repo "cat file3.txt || exit 0" nil emaci-stashes)
+ (should-not (file-exists-p (concat emaci-test-repo "file3.txt"))))
 
 ;;; test-emaci.el ends here

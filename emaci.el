@@ -285,11 +285,15 @@ Calls `emaci//job-finished'."
   "Revert repo of JOB to the old status.
 Checkout the branch it was one before the job got executed.
 Revert all stashes that were applied by JOB."
-  (emaci//switch-to-branch (emaci-job-oldref job) (emaci-job-dir job)))
+  (let ((dir (emaci-job-dir job)))
+    (emaci//switch-to-branch (emaci-job-oldref job) dir)
+    (emaci//revert-stashes (emaci-job-stashes job) dir)))
 
 (defun emaci//git-apply (job)
   "Switch to ref stored in JOB and apply the stashes."
-  (emaci//switch-to-branch (emaci-job-ref job) (emaci-job-dir job)))
+  (let ((dir (emaci-job-dir job)))
+    (emaci//switch-to-branch (emaci-job-ref job) dir)
+    (emaci//apply-stashes (emaci-job-stashes job) dir)))
 
 (defun emaci//signal-job (sigcode job)
   "Send SIGCODE to JOB.
