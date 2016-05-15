@@ -24,12 +24,13 @@ Features
 * Cancel/Kill Jobs
 * Multiple queues
 * Permanent build history and logs
+* Select git branch for each build
 
 -------
 Roadmap
 -------
 
-* Select git branches and stashes for each build
+* Select stashes for each build
 * Build Management buffer
 * Translate zsh function to bash
 * Metrics

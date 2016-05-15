@@ -13,6 +13,6 @@ echo "ciao" > file3.txt
 git add file2.txt
 git add file3.txt
 git commit -m "commit 2"
-echo "stash1" > file1.txt
+echo "stash1" > file4.txt
 git stash save -a "stash 1"
 git checkout master

@@ -181,11 +181,11 @@ BODY is the actual test."
 
 (defun test-job ()
   "Create a test job."
-  (emaci//new-job "testqueue" "~" "echo Tis but a scratch" nil 'comint-mode "$.*^"))
+  (emaci//new-job "testqueue" "~" "echo Tis but a scratch" nil nil 'comint-mode "$.*^"))
 
 (defun default-test-job ()
   "Create a test job."
-  (emaci//new-job nil "~" "echo Tis but a scratch" nil 'comint-mode "$.*^"))
+  (emaci//new-job nil "~" "echo Tis but a scratch" nil nil 'comint-mode "$.*^"))
 
 (defun assert-job
     (job queue buildno status statusmsg code oldref ref stashes buffer dir command mode highlight-regexp)
@@ -433,7 +433,7 @@ BODY is the actual test."
 (ert-deftest schedule-deferred ()
   "Test queuing with DEFERRED arg."
   (with-sandbox
-   (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'" nil nil nil t)
+   (emaci//schedule "testqueue" "~" "echo 'Come on, you pansy!'" nil nil nil nil t)
    (assert-job
     (cadr (assoc "testqueue" emaci-queue))
     "testqueue" 1 'queued nil nil nil nil nil nil
@@ -750,7 +750,7 @@ BODY is the actual test."
 
 (ert-deftest oldref-new ()
   (with-sandbox
-   (let ((job (emaci//new-job nil emaci-test-repo "exit 0" nil t nil)))
+   (let ((job (emaci//new-job nil emaci-test-repo "exit 0" nil nil t nil)))
      (should-not (emaci-job-oldref job)))))
 
 (defun assert-oldref ()
@@ -786,5 +786,19 @@ BODY is the actual test."
  (should (equal (emaci//current-commit emaci-test-repo) "master"))
  (emaci//schedule nil emaci-test-repo "cat file3.txt" "branch1")
  (should (equal (emaci//current-commit emaci-test-repo) "branch1")))
+
+(defun assert-stash-before-execute ()
+  (should-not (file-exists-p (concat emaci-test-repo "file4.txt")))
+  (assert-job
+   (cadr (assoc "*default*" emaci-history))
+   "*default*" 1 'finished "finished\n" 0 "master" nil emaci-stashes
+   "*default*: Build #1" emaci-test-repo "cat file4.txt" nil nil)
+  (should (equal (emaci//current-commit emaci-test-repo) "master")))
+
+(ert-deftest-async
+ stash-apply (assert-stash-before-execute)
+ (should-not (file-exists-p (concat emaci-test-repo "file4.txt")))
+ (emaci//schedule nil emaci-test-repo "cat file4.txt" nil emaci-stashes)
+ (should (file-exists-p (concat emaci-test-repo "file4.txt"))))
 
 ;;; test-emaci.el ends here
