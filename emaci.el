@@ -263,9 +263,16 @@ Calls `emaci//job-finished'."
 
 (defun emaci//switch-to-branch (branch dir)
   "Switch to BRANCH of repo in DIR."
-  (let ((default-directory (or dir default-directory)))
+  (let ((default-directory default-directory))
     (when (vc-git-responsible-p default-directory)
       (vc-git-checkout nil nil branch))))
+
+(defun emaci//apply-stashes (stashes dir)
+  "Apply STASHES to repo in DIR."
+  (let ((default-directory default-directory))
+    (when (vc-git-responsible-p default-directory)
+      (dolist (stash stashes)
+        (vc-git-stash-apply stash)))))
 
 (defun emaci//git-revert (job)
   "Revert repo of JOB to the old status.
