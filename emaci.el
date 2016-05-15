@@ -29,18 +29,53 @@
 (require 'vc-git)
 (require 'compile)
 (eval-when-compile (require 'cl-lib))
+(eval-when-compile (require 'cl))
+
 
 (defgroup emaci nil
   "Customization group for emaci."
   :prefix "emaci-"
-  :group 'emacs
-  :package-version '(emaci . "0.1"))
+  :group 'emacs)
 
 (defcustom emaci-save-dir "~/.emaci/"
    "Directory where emaci saves history and logs."
    :type 'string
-   :group 'emaci
-   :package-version '(emaci . "0.1"))
+   :group 'emaci)
+
+(defcustom emaci-max-history-len-status 50
+  "Show max number of jobs from history in status buffer."
+  :type 'int
+  :group 'emaci)
+
+(defface emaci-statbar-success-face
+  '((t :background "DarkGreen"))
+  "Face for a successful job in the status bar."
+  :group 'emaci)
+
+(defface emaci-statbar-fail-face
+  '((t :background "red"))
+  "Face for a failed job in the status bar."
+  :group 'emaci)
+
+(defface emaci-statbar-cancled-face
+  '((t :background "grey"))
+  "Face for a cancled job in the status bar."
+  :group 'emaci)
+
+(defface emaci-statbar-running-face
+  '((t :background "yellow"))
+  "Face for a running job in the status bar."
+  :group 'emaci)
+
+(defface emaci-statbar-queued-face
+  '((t :background "khaki"))
+  "Face for a cancled job in the status bar."
+  :group 'emaci)
+
+(defface emaci-statbar-unknown-face
+  '((t :background "blue"))
+  "Face for a job of unknown status in the status bar."
+  :group 'emaci)
 
 (cl-defstruct emaci-job
   buildno queue status statusmsg exitcode datecreated datefinished
@@ -147,7 +182,8 @@ global value of `compilation-highlight-regexp'.
 If DEFERRED is non-nil, don't execute the job right away if queue is empty."
   (let ((job (emaci//new-job queue dir command branch stashes mode highlight-regexp)))
     (emaci//queue-job job)
-    (unless (or (emaci//running-job-p queue) deferred)
+    (if (or (emaci//running-job-p queue) deferred)
+        (emaci//mgmt-buffer-update)
       (emaci/execute-next queue))))
 
 (defun storax//compilation-exit-function (status code msg)
@@ -209,7 +245,8 @@ Calls `emaci//job-finished'."
          ((eq (emaci-job-status job) 'queued)
           (emaci//execute job))
          ((eq (emaci-job-status job) 'running)
-          (signal 'emaci-error-job-running job)))))))
+          (signal 'emaci-error-job-running job)))))
+    (emaci//mgmt-buffer-update)))
 
 (defun emaci//create-buffer-name (job)
   "Return a buffer name for JOB."
@@ -316,19 +353,22 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
 
 (defun emaci/cancel-job (job)
   "Cancel JOB by interrupting the process if it is running."
-  (interactive (list (car emaci-queue)))
-  (let ((job-status (emaci-job-status job)))
-    (when (eq job-status 'running)
-      (emaci//signal-job 2 job))
-    (emaci//cancel-job1 job)))
+  (interactive (list (cadr (assoc (emaci//select-queue) emaci-queue))))
+  (when job
+    (let ((job-status (emaci-job-status job)))
+      (when (eq job-status 'running)
+        (emaci//signal-job 2 job))
+      (emaci//cancel-job1 job))
+    (emaci//mgmt-buffer-update)))
 
 (defun emaci/kill-job (job)
   "Cancel JOB by killing the process if it is running."
-  (interactive (list (car emaci-queue)))
+  (interactive (list (cadr (assoc (emaci//select-queue) emaci-queue))))
   (let ((job-status (emaci-job-status job)))
     (when (eq job-status 'running)
       (emaci//signal-job 9 job))
-    (emaci//cancel-job1 job)))
+    (emaci//cancel-job1 job))
+  (emaci//mgmt-buffer-update))
 
 (defun emaci//move-job-to-history (job)
   "Remove JOB from queue and put it in history."
@@ -443,7 +483,7 @@ From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major
   "Return a list of queues."
   (mapcar 'car emaci-queue))
 
-(defun emaci/select-queue ()
+(defun emaci//select-queue ()
   "Select a queue from `emaci-queue'."
   (completing-read
    "Select mode for compilation buffer: "
@@ -456,7 +496,7 @@ From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major
     (completing-read
      "Select git branch: " (emaci//branches dir) nil 'confirm nil nil (emaci//current-commit dir))))
 
-(defun emaci/select-stashes (dir)
+(defun emaci//select-stashes (dir)
   "Select stashes of repoin DIR."
   (when (vc-git-responsible-p dir)
     (let* ((stashes-human (emaci//stashes-human dir))
@@ -486,11 +526,11 @@ MODE and HIGHLIGHT-REGEXP are for the compilation buffer.
 See `compilation-start'."
   (interactive (let ((dir (emaci/get-dir)))
                  (list
-                  (emaci/select-queue)
+                  (emaci//select-queue)
                   dir
                   (emaci/get-command)
                   (emaci//select-branch dir)
-                  (emaci/select-stashes dir)
+                  (emaci//select-stashes dir)
                   (emaci//select-mode))))
   (emaci//schedule queue dir command branch stashes mode highlight-regexp))
 
@@ -513,11 +553,11 @@ HIGHLIGHT-REGEXP is for the compilation buffer.
 See `compilation-start'.  For mode, t will be used."
   (interactive (let ((dir (emaci/get-dir)))
                  (list
-                  (emaci/select-queue)
+                  (emaci//select-queue)
                   dir
                   (emaci/get-command)
                   (emaci//select-branch dir)
-                  (emaci/select-stashes dir))))
+                  (emaci//select-stashes dir))))
   (emaci//schedule queue dir command branch stashes t highlight-regexp))
 
 (defun emaci/init ()
@@ -526,6 +566,58 @@ See `compilation-start'.  For mode, t will be used."
   (add-hook 'compilation-finish-functions 'emaci//compilation-finished))
 
 (emaci/init)
+
+(defun emaci//mgmt-buffer-heading ()
+  "Return a heading for the emaci management buffer."
+  "* EMACI:\nQueues:\n")
+
+(defun emaci//mgmg-buffer-format-job-for-statusbar (job)
+  (when (emaci-job-p job)
+    (let ((tick (propertize
+                 " " 'face
+                 (cond
+                  ((and (emaci-job-exitcode job) (zerop (emaci-job-exitcode job)))
+                   'emaci-statbar-success-face)
+                  ((emaci-job-exitcode job)
+                   'emaci-statbar-fail-face)
+                  ((eq (emaci-job-status job) 'canceled)
+                   'emaci-statbar-canceled-face)
+                  ((eq (emaci-job-status job) 'running)
+                   'emaci-statbar-running-face)
+                  ((eq (emaci-job-status job) 'queued)
+                   'emaci-statbar-queued-face)
+                  (t
+                   'emaci-statbar-unknown-face)))))
+      (if (eq (emaci-job-status job) 'running)
+          (concat " " tick " ")
+        tick))))
+
+(defun emaci//mgmt-buffer-queue (queue)
+  "Return the formated QUEUE for the emaci management buffer."
+  (let* ((queuename (car queue))
+         (queueitems (cdr queue))
+         (historyitems (subseq (cdr (assoc queuename emaci-history))
+                               (* -1 emaci-max-history-len-status))))
+    (format
+     "** %s:\n%s\n"
+     queuename
+     (mapconcat
+      (lambda (job)
+        (emaci//mgmg-buffer-format-job-for-statusbar job))
+      (append historyitems queueitems)
+      ""))))
+
+(defun emaci//mgmt-buffer-update ()
+  "Initialize the management buffer."
+  (interactive)
+  (let ((buffer (get-buffer-create "*Emaci*"))
+        (inhibit-read-only t))
+    (with-current-buffer buffer
+      (erase-buffer)
+      (insert (emaci//mgmt-buffer-heading))
+      (dolist (queue emaci-queue)
+        (insert (emaci//mgmt-buffer-queue queue)))
+      (setq buffer-read-only t))))
 
 (provide 'emaci)
 
