@@ -26,6 +26,8 @@
 
 ;;; Code:
 
+(require 'vc-git)
+(require 'compile)
 (eval-when-compile (require 'cl-lib))
 
 (defgroup emaci nil
@@ -72,15 +74,15 @@ If QUEUE is not in the counter, it is added to it, starting with 1."
       (setf (cdr (assoc queue emaci--build-counter)) (+ 1 count)))))
 
 (defun emaci//new-job (queue dir command branch stashes mode highlight-regexp)
-  "Create a new job which gets executed in DIR.
+  "Create a new job for QUEUE which gets executed in DIR.
 
-The job is created for QUEUE. If QUEUE is nil, use default queue.
+The job is created for QUEUE.  If QUEUE is nil, use default queue.
 
 Run compilation command COMMAND (low level interface).
 If COMMAND starts with a cd command, that becomes the `default-directory'.
 The rest of the arguments are optional; for them, nil means use the default.
 
-BRANCH is a git branch name or a ref. It will be checkout out before
+BRANCH is a git branch name or a ref.  It will be checkout out before
 running COMMAND.
 
 STASHES is a list of stashes to apply before running COMMAND or nil.
@@ -107,7 +109,7 @@ global value of `compilation-highlight-regexp'."
      :highlight-regexp highlight-regexp)))
 
 (defun emaci//running-job-p (&optional queue)
-  "Return t if there is a running job."
+  "Return t if there is a running job in QUEUE."
   (let* ((queue (if queue queue "*default*"))
          (job (cadr (assoc queue emaci-queue))))
     (and job (eq (emaci-job-status job) 'running))))
@@ -129,7 +131,7 @@ Run compilation command COMMAND (low level interface).
 If COMMAND starts with a cd command, that becomes the `default-directory'.
 The rest of the arguments are optional; for them, nil means use the default.
 
-BRANCH is a git branch name or a ref. It will be checkout out before
+BRANCH is a git branch name or a ref.  It will be checkout out before
 running COMMAND.
 
 STASHES is a list of stashes to apply before running COMMAND or nil.
@@ -178,7 +180,7 @@ Calls `emaci//job-finished'."
     fullpath))
 
 (defun emaci//save-log (job)
-  "Save the output of the given job."
+  "Save the output of the given JOB."
   (let ((buffer (emaci-job-buffer job)))
     (when buffer
       (with-current-buffer buffer
@@ -197,7 +199,7 @@ Calls `emaci//job-finished'."
   (emaci/execute-next (emaci-job-queue job)))
 
 (defun emaci/execute-next (&optional queue)
-  "Execute the next job in the queue."
+  "Execute the next job in the QUEUE."
   (interactive)
   (let* ((queue (if queue queue "*default*"))
          (job (cadr (assoc queue emaci-queue))))
@@ -275,7 +277,7 @@ Calls `emaci//job-finished'."
         (vc-git-stash-apply stash)))))
 
 (defun emaci//revert-stashes (stashes dir)
-  "Reverse apply stashes to repo in DIR."
+  "Reverse apply STASHES to repo in DIR."
   (let ((default-directory dir))
     (when (vc-git-responsible-p default-directory)
       (dolist (stash (reverse stashes))
@@ -396,19 +398,19 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
 
 (defun emaci/get-dir ()
   "Interactively return a directory."
-  (read-directory-name
-   "Working directory: "
-   (projectile-project-p)
-   nil t))
+  (let ((default (if (boundp 'projectile-project-p) (projectile-project-p) default-directory)))
+    (read-directory-name
+     "Working directory: "
+     default
+     nil t)))
 
 (defun emaci/get-command ()
   "Interactively return a command for emaci."
   (read-shell-command "Command: " (car shell-command-history)))
 
-(defun emaci/list-major-modes ()
-  "Returns list of potential major mode names.
+(defun emaci//list-major-modes ()
+  "Return list of potential major mode names.
 From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major-modes-list)"
-  (interactive)
   (let (l)
     (mapatoms #'(lambda (f) (and
                         (commandp f)
@@ -429,32 +431,33 @@ From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major
                         (setq l (cons (symbol-name f) l)))))
     l))
 
-(defun emaci/select-mode ()
-  (interactive)
+(defun emaci//select-mode ()
+  "Select a major mode to use in the compilation buffer."
   (intern
    (completing-read
     "Select mode for compilation buffer: "
-    (emaci/list-major-modes)
+    (emaci//list-major-modes)
     nil t nil emaci-mode-history "comint-mode")))
 
-(defun emaci/list-queues ()
+(defun emaci//list-queues ()
+  "Return a list of queues."
   (mapcar 'car emaci-queue))
 
 (defun emaci/select-queue ()
-  (interactive)
+  "Select a queue from `emaci-queue'."
   (completing-read
    "Select mode for compilation buffer: "
-   (emaci/list-queues)
+   (emaci//list-queues)
    nil nil nil nil "*default*"))
 
-(defun emaci/select-branch (dir)
-  (interactive (list (emaci/get-dir)))
+(defun emaci//select-branch (dir)
+  "Select a branch of repo in DIR."
   (when (vc-git-responsible-p dir)
     (completing-read
      "Select git branch: " (emaci//branches dir) nil 'confirm nil nil (emaci//current-commit dir))))
 
 (defun emaci/select-stashes (dir)
-  (interactive (list (emaci/get-dir)))
+  "Select stashes of repoin DIR."
   (when (vc-git-responsible-p dir)
     (let* ((stashes-human (emaci//stashes-human dir))
            (stashes (completing-read-multiple
@@ -464,24 +467,56 @@ From Tobias Zawada (http://stackoverflow.com/questions/5536304/emacs-stock-major
        (lambda (stash) (nth (cl-position stash stashes-human :test 'equal) hashes))
        stashes))))
 
-(defun emaci/submit-job (queue dir command &optional branch mode highlight-regexp)
+(defun emaci/submit-job (queue dir command &optional branch stashes mode highlight-regexp)
+  "Submit a job to emaci.
+
+Select a QUEUE for the job.  Each queue is consumed serially.
+Multiple queues are executed in parallel.
+
+DIR is the working directory for the COMMAND to execute.
+
+If BRANCH is non-nil, switch to the branch before execution and switch back
+to the branch that was checked out when execution started afterwards.
+
+If STASHES is a list of stash hashes,
+apply stashes before executing the command.
+The changes will be reverted after the execution.
+
+MODE and HIGHLIGHT-REGEXP are for the compilation buffer.
+See `compilation-start'."
   (interactive (let ((dir (emaci/get-dir)))
                  (list
                   (emaci/select-queue)
                   dir
                   (emaci/get-command)
-                  (emaci/select-branch dir)
+                  (emaci//select-branch dir)
                   (emaci/select-stashes dir)
-                  (emaci/select-mode))))
+                  (emaci//select-mode))))
   (emaci//schedule queue dir command branch stashes mode highlight-regexp))
 
-(defun emaci/submit-job-comint (queue dir command &optional branch highlight-regexp)
+(defun emaci/submit-job-comint (queue dir command &optional branch stashes highlight-regexp)
+  "Submit a job to emaci.
+
+Select a QUEUE for the job.  Each queue is consumed serially.
+Multiple queues are executed in parallel.
+
+DIR is the working directory for the COMMAND to execute.
+
+If BRANCH is non-nil, switch to the branch before execution and switch back
+to the branch that was checked out when execution started afterwards.
+
+If STASHES is a list of stash hashes,
+apply stashes before executing the command.
+The changes will be reverted after the execution.
+
+HIGHLIGHT-REGEXP is for the compilation buffer.
+See `compilation-start'.  For mode, t will be used."
   (interactive (let ((dir (emaci/get-dir)))
                  (list
                   (emaci/select-queue)
                   dir
                   (emaci/get-command)
-                  (emaci/select-branch dir)
+                  (emaci//select-branch dir)
                   (emaci/select-stashes dir))))
   (emaci//schedule queue dir command branch stashes t highlight-regexp))
 
