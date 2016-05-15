@@ -48,12 +48,12 @@
   :group 'emaci)
 
 (defface emaci-statbar-success-face
-  '((t :background "DarkGreen"))
+  '((t :background "#4de137"))
   "Face for a successful job in the status bar."
   :group 'emaci)
 
 (defface emaci-statbar-fail-face
-  '((t :background "red"))
+  '((t :background "#ff4444"))
   "Face for a failed job in the status bar."
   :group 'emaci)
 
@@ -63,12 +63,12 @@
   :group 'emaci)
 
 (defface emaci-statbar-running-face
-  '((t :background "yellow"))
+  '((t :background "#fff574"))
   "Face for a running job in the status bar."
   :group 'emaci)
 
 (defface emaci-statbar-queued-face
-  '((t :background "khaki"))
+  '((t :background "#51b8e1"))
   "Face for a cancled job in the status bar."
   :group 'emaci)
 
@@ -78,7 +78,7 @@
   :group 'emaci)
 
 (cl-defstruct emaci-job
-  buildno queue status statusmsg exitcode datecreated datefinished
+  buildno queue status statusmsg exitcode datestarted datefinished
   oldref ref stashes buffer dir command mode highlight-regexp)
 
 (defvar emaci-queue nil
@@ -135,7 +135,6 @@ global value of `compilation-highlight-regexp'."
      :buildno buildno
      :queue queue
      :status 'queued
-     :datecreated (current-time)
      :dir dir
      :ref branch
      :stashes stashes
@@ -263,6 +262,7 @@ Calls `emaci//job-finished'."
   (setf (emaci-job-status job) 'running)
   (setf (emaci-job-oldref job) (emaci//current-commit (emaci-job-dir job)))
   (setf (emaci-job-buffer job) (buffer-name (emaci//create-buffer job)))
+  (setf (emaci-job-datestarted job) (current-time))
   (let ((default-directory (emaci-job-dir job)))
     (emaci//git-apply job)
     (compilation-start
@@ -569,9 +569,14 @@ See `compilation-start'.  For mode, t will be used."
 
 (defun emaci//mgmt-buffer-heading ()
   "Return a heading for the emaci management buffer."
-  "* EMACI:\nQueues:\n")
+  "Queues:\n")
 
-(defun emaci//mgmg-buffer-format-job-for-statusbar (job)
+(defun emaci//mgmt-buffer-queue-heading (queuename)
+  "Return a heading for QUEUENAME for the emaci management buffer."
+   queuename)
+
+(defun emaci//mgmt-buffer-format-job-for-statusbar (job)
+  "Return a statusbar segment for JOB."
   (when (emaci-job-p job)
     (let ((tick (propertize
                  " " 'face
@@ -592,32 +597,138 @@ See `compilation-start'.  For mode, t will be used."
           (concat " " tick " ")
         tick))))
 
+(defun emaci//mgmt-buffer-format-job (job)
+  "Return a formated JOB."
+  (when (emaci-job-p job)
+    (let* ((queue (emaci-job-queue job))
+          (status (emaci-job-status job))
+          (code (emaci-job-exitcode job))
+          (started (emaci-job-datestarted job))
+          (ended (emaci-job-datefinished job))
+          (duration (when ended (time-to-seconds (time-subtract ended started)))))
+      (concat
+       (emaci//mgmt-propertize
+        (format "\n#%s:" (emaci-job-buildno job))
+        (list queue 'jobs))
+       (emaci//mgmt-propertize
+        (format "\nStatus: %-13s %s\nDuration: %-11s Started: %s"
+                status
+                (if code (format "Exitcode: %d" code) "")
+                (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) "")
+                (if started (format-time-string "%d/%m/%Y %H:%M" started) ""))
+        (list queue 'jobs job))
+       ""))))
+
 (defun emaci//mgmt-buffer-queue (queue)
   "Return the formated QUEUE for the emaci management buffer."
   (let* ((queuename (car queue))
          (queueitems (cdr queue))
          (historyitems (subseq (cdr (assoc queuename emaci-history))
-                               (* -1 emaci-max-history-len-status))))
+                               (* -1 emaci-max-history-len-status)))
+         (jobs (append historyitems queueitems)))
     (format
-     "** %s:\n%s\n"
-     queuename
+     "\n%s:\n%s%s\n"
+     (emaci//mgmt-buffer-queue-heading queuename)
+     (emaci//mgmt-add-properties
+      (concat
+       (mapconcat
+        (lambda (job) (emaci//mgmt-buffer-format-job-for-statusbar job))
+        jobs "")
+       "\nJobs:")
+      (list queuename))
      (mapconcat
-      (lambda (job)
-        (emaci//mgmg-buffer-format-job-for-statusbar job))
-      (append historyitems queueitems)
-      ""))))
+      (lambda (job) (emaci//mgmt-buffer-format-job job))
+      (reverse jobs) ""))))
 
 (defun emaci//mgmt-buffer-update ()
   "Initialize the management buffer."
   (interactive)
-  (let ((buffer (get-buffer-create "*Emaci*"))
+  (let ((buffer? (get-buffer "*Emaci*"))
+        (buffer (get-buffer-create "*Emaci*"))
         (inhibit-read-only t))
     (with-current-buffer buffer
-      (erase-buffer)
-      (insert (emaci//mgmt-buffer-heading))
-      (dolist (queue emaci-queue)
-        (insert (emaci//mgmt-buffer-queue queue)))
-      (setq buffer-read-only t))))
+      (unless buffer?
+        (emaci-mode))
+      (save-excursion
+        (erase-buffer)
+        (insert (emaci//mgmt-buffer-heading))
+        (dolist (queue (reverse emaci-queue))
+          (insert (emaci//mgmt-buffer-queue queue)))
+        (unless buffer?
+          (setq buffer-read-only t)
+          (setq buffer-invisibility-spec nil)
+          (message "emaci--sections %s" emaci--sections)
+          (mapcar
+           (lambda (section)
+             (if (> (length (emaci-section-arglist section)) 1)
+                 (add-to-invisibility-spec (cons section t))))
+           emaci--sections))))))
+
+(defvar-local emaci--sections nil
+  "Internal list for emaci sections in the management browser.")
+
+(cl-defstruct emaci-section arglist)
+
+(defun emaci//mgmt-get-section-ident (args)
+  "Return the section identifier for ARGS."
+  (let (secargs sections)
+    (dolist (arg args)
+      (add-to-list 'secargs arg t)
+      (add-to-list
+       'sections
+       (let* ((section (make-emaci-section :arglist secargs))
+              (pos (cl-position section emaci--sections :test 'equal)))
+         (if pos
+             (nth pos emaci--sections)
+           (progn
+             (add-to-list 'emaci--sections section)
+             section)))))
+    sections))
+
+(defun emaci//mgmt-propertize (string sechierarchy &optional props)
+  "Propertize STRING.
+
+SECHIERARCHY is used for the `invisible' property.
+PROPS are also added."
+  (apply
+   'propertize string
+   (append (list 'invisible (emaci//mgmt-get-section-ident sechierarchy)) props)))
+
+(defun emaci//mgmt-add-properties (string sechierarchy)
+  "Add properties to STRING.
+
+SECHIERARCHY is used for the `invisible' property."
+  (progn
+    (add-text-properties
+     0 (length string) (list 'invisible (emaci//mgmt-get-section-ident sechierarchy)) string)
+    string))
+
+(defun emaci/toggle-section ()
+  (interactive)
+  (let* ((prop (car (get-text-property (point) 'invisible)))
+         (arglist (when (emaci-section-p prop) (emaci-section-arglist prop)))
+         (consprop (cons prop t)))
+    (when (> (length arglist) 1)
+      (if (member consprop buffer-invisibility-spec)
+          (remove-from-invisibility-spec consprop)
+        (add-to-invisibility-spec consprop)))))
+
+(defvar emaci-mode-hook nil
+  "Hooks for the emaci management buffer mode.")
+
+(defvar emaci-mode-map
+  (let ((map (make-keymap)))
+    (define-key map (kbd "TAB") 'emaci/toggle-section)
+    map)
+  "Keymap for emaci major mode")
+
+(define-derived-mode emaci-mode special-mode "Emaci"
+  "Major mode for emaci management buffer.
+
+\\{emaci-mode-map}
+
+Entry to this mode calls the value of `emaci-mode-hook'
+if that value is non-nil.")
 
 (provide 'emaci)
 

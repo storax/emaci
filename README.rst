@@ -26,12 +26,13 @@ Features
 * Permanent build history and logs
 * Select git branch for each build
 * Select stashes for each build
+* Build Management buffer
 
 -------
 Roadmap
 -------
 
-* Build Management buffer
+* Nicer Management buffer
 * Translate zsh function to bash
 * Metrics
 * Commit hook
