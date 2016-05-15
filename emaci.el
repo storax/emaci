@@ -266,7 +266,7 @@ Calls `emaci//job-finished'."
 (defun emaci//switch-to-branch (branch dir)
   "Switch to BRANCH of repo in DIR."
   (let ((default-directory dir))
-    (when (vc-git-responsible-p default-directory)
+    (when (and branch (vc-git-responsible-p default-directory))
       (vc-git-checkout nil nil branch))))
 
 (defun emaci//apply-stashes (stashes dir)
