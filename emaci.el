@@ -605,7 +605,7 @@ See `compilation-start'.  For mode, t will be used."
           (code (emaci-job-exitcode job))
           (started (emaci-job-datestarted job))
           (ended (emaci-job-datefinished job))
-          (duration (when ended (time-to-seconds (time-subtract ended started)))))
+          (duration (when (and started ended) (time-to-seconds (time-subtract ended started)))))
       (concat
        (emaci//mgmt-propertize
         (format "\n#%s:" (emaci-job-buildno job))
