@@ -15,6 +15,4 @@ git add file3.txt
 git commit -m "commit 2"
 rm file3.txt
 git stash save stash1
-git stash list
-git stash show 'stash@{0}'
 git checkout master

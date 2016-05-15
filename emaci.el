@@ -263,20 +263,20 @@ Calls `emaci//job-finished'."
 
 (defun emaci//switch-to-branch (branch dir)
   "Switch to BRANCH of repo in DIR."
-  (let ((default-directory default-directory))
+  (let ((default-directory dir))
     (when (vc-git-responsible-p default-directory)
       (vc-git-checkout nil nil branch))))
 
 (defun emaci//apply-stashes (stashes dir)
   "Apply STASHES to repo in DIR."
-  (let ((default-directory default-directory))
+  (let ((default-directory dir))
     (when (vc-git-responsible-p default-directory)
       (dolist (stash stashes)
         (vc-git-stash-apply stash)))))
 
 (defun emaci//revert-stashes (stashes dir)
   "Reverse apply stashes to repo in DIR."
-  (let ((default-directory default-directory))
+  (let ((default-directory dir))
     (when (vc-git-responsible-p default-directory)
       (dolist (stash (reverse stashes))
         (shell-command (format "git stash show -p %s | git apply -R" stash))))))
@@ -286,8 +286,8 @@ Calls `emaci//job-finished'."
 Checkout the branch it was one before the job got executed.
 Revert all stashes that were applied by JOB."
   (let ((dir (emaci-job-dir job)))
-    (emaci//switch-to-branch (emaci-job-oldref job) dir)
-    (emaci//revert-stashes (emaci-job-stashes job) dir)))
+    (emaci//revert-stashes (emaci-job-stashes job) dir)
+    (emaci//switch-to-branch (emaci-job-oldref job) dir)))
 
 (defun emaci//git-apply (job)
   "Switch to ref stored in JOB and apply the stashes."

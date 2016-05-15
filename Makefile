@@ -14,7 +14,7 @@ test: export EMACI_TESTGITDIR2=$(shell mktemp -d)
 test: elpa
 	echo created git temp dir $$EMACI_TESTGITDIR; \
   ./create_test_git_repo.sh
-	$(CASK) exec ert-runner; \
+	$(CASK) exec ert-runner --reporter ert; \
 	rm -rf $$EMACI_TESTGITDIR; \
 	rm -rf $$EMACI_TESTGITDIR2; \
   rm -rf $$EMACI_SAVEDIR

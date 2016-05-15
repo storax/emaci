@@ -731,7 +731,7 @@ BODY is the actual test."
    (should-not (emaci//branches emaci-test-empty-repo)))
 
 (ert-deftest switch-branch ()
-   (emaci//switch-to-branch "branch1" emaci-test-repo)
+  (emaci//switch-to-branch "branch1" emaci-test-repo)
    (let ((branch (car (emaci//branches emaci-test-repo))))
      (emaci//switch-to-branch "master" emaci-test-repo)
      (should (equal branch "branch1"))))
@@ -787,17 +787,17 @@ BODY is the actual test."
  (should (equal (emaci//current-commit emaci-test-repo) "branch1")))
 
 (defun assert-stash-before-execute ()
-  (should-not (file-exists-p (concat emaci-test-repo "file4.txt")))
   (assert-job
    (cadr (assoc "*default*" emaci-history))
-   "*default*" 1 'finished "finished\n" 0 "master" nil emaci-stashes
+   "*default*" 1 'finished "finished\n" 0 "master" "branch1" emaci-stashes
    "*default*: Build #1" emaci-test-repo "cat file3.txt || exit 0" nil nil)
-  (should (equal (emaci//current-commit emaci-test-repo) "master")))
+  (should (equal (emaci//current-commit emaci-test-repo) "master"))
+  (should-not (file-exists-p (concat emaci-test-repo "file3.txt"))))
 
 (ert-deftest-async
  stash-apply (assert-stash-before-execute)
- (should (file-exists-p (concat emaci-test-repo "file3.txt")))
- (emaci//schedule nil emaci-test-repo "cat file3.txt || exit 0" nil emaci-stashes)
+ (should-not (file-exists-p (concat emaci-test-repo "file3.txt")))
+ (emaci//schedule nil emaci-test-repo "cat file3.txt || exit 0" "branch1" emaci-stashes)
  (should-not (file-exists-p (concat emaci-test-repo "file3.txt"))))
 
 ;;; test-emaci.el ends here
