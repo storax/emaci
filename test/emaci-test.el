@@ -55,7 +55,7 @@
   `(let ((default-directory "/"))
      ,@body))
 
-(defvar emaci-commit-1 (vc-git-working-revision emaci-test-repo))
+(defvar emaci-commit-1 (with-repo (vc-git-working-revision emaci-test-repo)))
 (defvar emaci-stashes (with-repo
                         (split-string (shell-command-to-string "git stash list --pretty=format:%H"))))
 
