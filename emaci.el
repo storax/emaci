@@ -635,7 +635,7 @@ See `compilation-start'.  For mode, t will be used."
 
 (defun emaci//mgmt-format-status-detail (job)
   "Return formatted status detail for JOB."
-  (format "%s %-13s"
+  (format "%s   %-11s"
           (emaci//mgmt-propface-label "Status:")
           (emaci-job-status job)))
 
@@ -644,7 +644,7 @@ See `compilation-start'.  For mode, t will be used."
   (let ((code (emaci-job-exitcode job)))
     (format "%s %s"
             (emaci//mgmt-propface-label "Exitcode:")
-            (if code (emaci//mgmt-propface-for-status (number-to-string code) job) ""))))
+            (if code (emaci//mgmt-propface-for-status (number-to-string code) job) "--"))))
 
 (defun emaci//mgmt-format-duration-detail (job)
   "Return formatted duration detail for JOB."
@@ -653,23 +653,41 @@ See `compilation-start'.  For mode, t will be used."
          (duration (when (and started ended) (time-to-seconds (time-subtract ended started)))))
     (format "%s %-11s"
           (emaci//mgmt-propface-label "Duration:")
-          (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) ""))))
+          (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) "--"))))
 
 (defun emaci//mgmt-format-started-detail (job)
   "Return formatted started detail for JOB."
   (let ((started (emaci-job-datestarted job)))
     (format "%s %s"
             (emaci//mgmt-propface-label "Started:")
-            (if started (format-time-string "%d/%m/%Y %H:%M" started) ""))))
+            (if started (format-time-string "%d/%m/%Y %H:%M" started) "--"))))
+
+(defun emaci//mgmt-format-branch-detail (job)
+  "Return a formatted branch detail for JOB."
+  (let ((branch (emaci-job-ref job)))
+    (format "%s   %s"
+          (emaci//mgmt-propface-label "Branch:")
+          (if branch branch "--"))))
+
+(defun emaci//mgmt-format-command-detail (job)
+  "Return formatted command detail for JOB."
+  (let ((cmd (emaci-job-command job)))
+    (format "%s\n%s"
+            (emaci//mgmt-propface-label "Command:")
+            (if (> (length cmd) 80)
+                (concat "..." (substring cmd -80))
+              cmd))))
 
 (defun emaci//mgmt-format-details (job)
   "Return formated JOB details."
   (format
-   "\n%s %s\n%s %s"
+   "\n%s %s\n%s %s\n%s\n%s"
    (emaci//mgmt-format-status-detail job)
    (emaci//mgmt-format-exitcode-detail job)
    (emaci//mgmt-format-duration-detail job)
-   (emaci//mgmt-format-started-detail job)))
+   (emaci//mgmt-format-started-detail job)
+   (emaci//mgmt-format-branch-detail job)
+   (emaci//mgmt-format-command-detail job)))
 
 (defun emaci//mgmt-buffer-format-job (job)
   "Return a formated JOB."
