@@ -592,7 +592,8 @@ See `compilation-start'.  For mode, t will be used."
                   ((eq (emaci-job-status job) 'queued)
                    'emaci-statbar-queued-face)
                   (t
-                   'emaci-statbar-unknown-face)))))
+                   'emaci-statbar-unknown-face))
+                 'statjob job)))
       (if (eq (emaci-job-status job) 'running)
           (concat " " tick " ")
         tick))))
@@ -609,14 +610,14 @@ See `compilation-start'.  For mode, t will be used."
       (concat
        (emaci//mgmt-propertize
         (format "\n#%s:" (emaci-job-buildno job))
-        (list queue job))
+        (list queue job) (list 'field job))
        (emaci//mgmt-propertize
         (format "\nStatus: %-13s %s\nDuration: %-11s Started: %s"
                 status
                 (if code (format "Exitcode: %d" code) "")
                 (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) "")
                 (if started (format-time-string "%d/%m/%Y %H:%M" started) ""))
-        (list queue job 'details))
+        (list queue job 'details) (list 'field job))
        ""))))
 
 (defun emaci//mgmt-buffer-queue (queue)
@@ -738,12 +739,44 @@ If ALL is non-nil return also grandchildren."
               (remove-from-invisibility-spec (cons prop t))
             (add-to-invisibility-spec (cons prop t))))))))
 
+(defun emaci//show-log (job)
+  "Show the buffer of JOB if it exists or try to open the log file."
+  (when (emaci-job-p job)
+    (let ((buffer (get-buffer (emaci-job-buffer job))))
+      (if buffer
+          (display-buffer buffer)
+        (let ((path (emaci//get-log-filepath job)))
+          (when (file-exists-p path)
+            (find-file-other-window path)))))))
+
+(defun emaci//find-job-field (job)
+  "Goto the field with JOB as property value."
+  (when (emaci-job-p job)
+    (beginning-of-buffer)
+    (let* ((buffer (current-buffer))
+           (pos (next-property-change (point-min) buffer)))
+      (while pos
+        (if (eq job (get-text-property pos 'field buffer))
+            (progn (goto-char (+ 1 pos))
+                   (setq pos nil))
+          (setq pos (next-property-change pos buffer)))))))
+
+(defun emaci/mgmt-ret ()
+  "When on status bar, goto job, when on job show log."
+  (interactive)
+  (let ((statjob (get-text-property (point) 'statjob (current-buffer)))
+        (field (get-text-property (point) 'field (current-buffer))))
+    (if statjob
+        (emaci//find-job-field statjob)
+      (emaci//show-log field))))
+
 (defvar emaci-mode-hook nil
   "Hooks for the emaci management buffer mode.")
 
 (defvar emaci-mode-map
   (let ((map (make-keymap)))
     (define-key map (kbd "TAB") 'emaci/toggle-section)
+    (define-key map (kbd "RET") 'emaci/mgmt-ret)
     map)
   "Keymap for emaci major mode.")
 
