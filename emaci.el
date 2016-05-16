@@ -77,6 +77,37 @@
   "Face for a job of unknown status in the status bar."
   :group 'emaci)
 
+(defface emaci-mgmt-success-face
+  '((t :foreground "#4de137"))
+  "Face for a successful job in then mgmt buffer."
+  :group 'emaci)
+
+(defface emaci-mgmt-fail-face
+  '((t :foreground "#ff4444"))
+  "Face for a failed job in the mgmt buffer."
+  :group 'emaci)
+
+(defface emaci-mgmt-canceled-face
+  '((t :foreground "grey"))
+  "Face for a cancled job in the mgmt buffer."
+  :group 'emaci)
+
+(defface emaci-mgmt-running-face
+  '((t :foreground "#fff574"))
+  "Face for a running job in the mgmt buffer."
+  :group 'emaci)
+
+(defface emaci-mgmt-queued-face
+  '((t :foreground "#51b8e1"))
+  "Face for a cancled job in the mgmt buffer."
+  :group 'emaci)
+
+(defface emaci-mgmt-unknown-face
+  '((t :foreground "blue"))
+  "Face for a job of unknown status in the mgmt buffer."
+  :group 'emaci)
+
+
 (cl-defstruct emaci-job
   buildno queue status statusmsg exitcode datestarted datefinished
   oldref ref stashes buffer dir command mode highlight-regexp)
@@ -569,11 +600,11 @@ See `compilation-start'.  For mode, t will be used."
 
 (defun emaci//mgmt-buffer-heading ()
   "Return a heading for the emaci management buffer."
-  "Queues:\n")
+  (propertize "Queues:\n" 'face 'outline-1))
 
 (defun emaci//mgmt-buffer-queue-heading (queuename)
   "Return a heading for QUEUENAME for the emaci management buffer."
-   queuename)
+   (propertize (concat queuename ":") 'face 'outline-2))
 
 (defun emaci//mgmt-buffer-format-job-for-statusbar (job)
   "Return a statusbar segment for JOB."
@@ -609,12 +640,12 @@ See `compilation-start'.  For mode, t will be used."
           (duration (when (and started ended) (time-to-seconds (time-subtract ended started)))))
       (concat
        (emaci//mgmt-propertize
-        (format "\n#%s:" (emaci-job-buildno job))
+        (emaci//mgmt-propface-for-status (format "\n#%s:" (emaci-job-buildno job)) job)
         (list queue job) (list 'field job))
        (emaci//mgmt-propertize
         (format "\nStatus: %-13s %s\nDuration: %-11s Started: %s"
                 status
-                (if code (format "Exitcode: %d" code) "")
+                (if code (format "Exitcode: %s" (emaci//mgmt-propface-for-status (format "%d" code) job)) "")
                 (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) "")
                 (if started (format-time-string "%d/%m/%Y %H:%M" started) ""))
         (list queue job 'details) (list 'field job))
@@ -628,14 +659,15 @@ See `compilation-start'.  For mode, t will be used."
                                   (* -1 emaci-max-history-len-status)))
          (jobs (append historyitems queueitems)))
     (format
-     "\n%s:\n%s%s\n"
+     "\n%s\n%s%s\n"
      (emaci//mgmt-buffer-queue-heading queuename)
      (emaci//mgmt-add-properties
       (concat
        (mapconcat
         (lambda (job) (emaci//mgmt-buffer-format-job-for-statusbar job))
         jobs "")
-       "\nJobs:")
+       "\n"
+       (propertize "Jobs:" 'face 'outline-3))
       (list queuename))
      (mapconcat
       (lambda (job) (emaci//mgmt-buffer-format-job job))
@@ -702,6 +734,24 @@ SECHIERARCHY is used for the `invisible' property."
     (add-text-properties
      0 (length string) (list 'invisible (emaci//mgmt-get-section-ident sechierarchy)) string)
     string))
+
+(defun emaci//mgmt-propface-for-status (string job)
+  "Return a STRING with a face according to status of JOB."
+  (propertize
+   string 'face
+   (cond
+    ((and (emaci-job-exitcode job) (zerop (emaci-job-exitcode job)))
+     'emaci-mgmt-success-face)
+    ((emaci-job-exitcode job)
+     'emaci-mgmt-fail-face)
+    ((eq (emaci-job-status job) 'canceled)
+     'emaci-mgmt-canceled-face)
+    ((eq (emaci-job-status job) 'running)
+     'emaci-mgmt-running-face)
+    ((eq (emaci-job-status job) 'queued)
+     'emaci-mgmt-queued-face)
+    (t
+     'emaci-mgmt-unknown-face))))
 
 (defun emaci//get-children-section (section all)
   "Get all children sections of SECTION.
