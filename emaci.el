@@ -629,6 +629,48 @@ See `compilation-start'.  For mode, t will be used."
           (concat " " tick " ")
         tick))))
 
+(defun emaci//mgmt-propface-label (str)
+  "Return STR with `outline-4'."
+  (propertize str 'face 'outline-4))
+
+(defun emaci//mgmt-format-status-detail (job)
+  "Return formatted status detail for JOB."
+  (format "%s %-13s"
+          (emaci//mgmt-propface-label "Status:")
+          (emaci-job-status job)))
+
+(defun emaci//mgmt-format-exitcode-detail (job)
+  "Return formatted code detail for JOB."
+  (let ((code (emaci-job-exitcode job)))
+    (format "%s %s"
+            (emaci//mgmt-propface-label "Exitcode:")
+            (if code (emaci//mgmt-propface-for-status (number-to-string code) job) ""))))
+
+(defun emaci//mgmt-format-duration-detail (job)
+  "Return formatted duration detail for JOB."
+  (let* ((started (emaci-job-datestarted job))
+         (ended (emaci-job-datefinished job))
+         (duration (when (and started ended) (time-to-seconds (time-subtract ended started)))))
+    (format "%s %-11s"
+          (emaci//mgmt-propface-label "Duration:")
+          (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) ""))))
+
+(defun emaci//mgmt-format-started-detail (job)
+  "Return formatted started detail for JOB."
+  (let ((started (emaci-job-datestarted job)))
+    (format "%s %s"
+            (emaci//mgmt-propface-label "Started:")
+            (if started (format-time-string "%d/%m/%Y %H:%M" started) ""))))
+
+(defun emaci//mgmt-format-details (job)
+  "Return formated JOB details."
+  (format
+   "\n%s %s\n%s %s"
+   (emaci//mgmt-format-status-detail job)
+   (emaci//mgmt-format-exitcode-detail job)
+   (emaci//mgmt-format-duration-detail job)
+   (emaci//mgmt-format-started-detail job)))
+
 (defun emaci//mgmt-buffer-format-job (job)
   "Return a formated JOB."
   (when (emaci-job-p job)
@@ -643,11 +685,7 @@ See `compilation-start'.  For mode, t will be used."
         (emaci//mgmt-propface-for-status (format "\n#%s:" (emaci-job-buildno job)) job)
         (list queue job) (list 'field job))
        (emaci//mgmt-propertize
-        (format "\nStatus: %-13s %s\nDuration: %-11s Started: %s"
-                status
-                (if code (format "Exitcode: %s" (emaci//mgmt-propface-for-status (format "%d" code) job)) "")
-                (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) "")
-                (if started (format-time-string "%d/%m/%Y %H:%M" started) ""))
+        (emaci//mgmt-format-details job)
         (list queue job 'details) (list 'field job))
        ""))))
 
