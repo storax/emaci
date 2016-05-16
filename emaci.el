@@ -57,7 +57,7 @@
   "Face for a failed job in the status bar."
   :group 'emaci)
 
-(defface emaci-statbar-cancled-face
+(defface emaci-statbar-canceled-face
   '((t :background "grey"))
   "Face for a cancled job in the status bar."
   :group 'emaci)
@@ -609,14 +609,14 @@ See `compilation-start'.  For mode, t will be used."
       (concat
        (emaci//mgmt-propertize
         (format "\n#%s:" (emaci-job-buildno job))
-        (list queue 'jobs))
+        (list queue job))
        (emaci//mgmt-propertize
         (format "\nStatus: %-13s %s\nDuration: %-11s Started: %s"
                 status
                 (if code (format "Exitcode: %d" code) "")
                 (if duration (format-seconds "%yy %dd %hh %mm %z%ss" duration) "")
                 (if started (format-time-string "%d/%m/%Y %H:%M" started) ""))
-        (list queue 'jobs job))
+        (list queue job 'details))
        ""))))
 
 (defun emaci//mgmt-buffer-queue (queue)
@@ -660,7 +660,6 @@ See `compilation-start'.  For mode, t will be used."
         (unless buffer?
           (setq buffer-read-only t)
           (setq buffer-invisibility-spec nil)
-          (message "emaci--sections %s" emaci--sections)
           (mapcar
            (lambda (section)
              (if (> (length (emaci-section-arglist section)) 1)
@@ -703,16 +702,41 @@ SECHIERARCHY is used for the `invisible' property."
      0 (length string) (list 'invisible (emaci//mgmt-get-section-ident sechierarchy)) string)
     string))
 
-(defun emaci/toggle-section ()
+(defun emaci//get-children-section (section all)
+  "Get all children sections of SECTION.
+
+If ALL is non-nil return also grandchildren."
+  (let* ((arglist (emaci-section-arglist section))
+         children)
+    (mapcar
+     (lambda (cand)
+       (let ((secarglist (emaci-section-arglist cand))
+             (larg (length arglist)))
+         (when (and (if all t (equal (+ 1 larg) (length secarglist)))
+                    (equal (cl-subseq secarglist 0 larg) arglist)
+                    (not (eq cand section)))
+           (add-to-list 'children cand))))
+     emaci--sections)
+    children))
+
+(defun emaci/toggle-section (arg)
   "Open and close sections."
-  (interactive)
+  (interactive "P")
   (let* ((prop (car (get-text-property (point) 'invisible)))
-         (arglist (when (emaci-section-p prop) (emaci-section-arglist prop)))
-         (consprop (cons prop t)))
-    (when (> (length arglist) 1)
-      (if (member consprop buffer-invisibility-spec)
-          (remove-from-invisibility-spec consprop)
-        (add-to-invisibility-spec consprop)))))
+         (arglist (when (emaci-section-p prop) (emaci-section-arglist prop))))
+    (when arglist
+      (let ((children (emaci//get-children-section prop arg)))
+        (if children
+            (let ((func (if (member (cons (car children) t) buffer-invisibility-spec)
+                            'remove-from-invisibility-spec
+                          'add-to-invisibility-spec)))
+              (mapcar
+               `(lambda (child)
+                  (,func (cons child t)))
+               children))
+          (if (member (cons prop t) buffer-invisibility-spec)
+              (remove-from-invisibility-spec (cons prop t))
+            (add-to-invisibility-spec (cons prop t))))))))
 
 (defvar emaci-mode-hook nil
   "Hooks for the emaci management buffer mode.")
