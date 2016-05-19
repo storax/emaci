@@ -843,7 +843,8 @@ If ALL is non-nil return also grandchildren."
                children))
           (if (member (cons prop t) buffer-invisibility-spec)
               (remove-from-invisibility-spec (cons prop t))
-            (add-to-invisibility-spec (cons prop t))))))))
+            (add-to-invisibility-spec (cons prop t))))
+        (force-window-update (get-buffer-window (current-buffer)))))))
 
 (defun emaci//show-log (job)
   "Show the buffer of JOB if it exists or try to open the log file."
@@ -865,7 +866,14 @@ If ALL is non-nil return also grandchildren."
         (if (eq job (get-text-property pos 'field buffer))
             (progn (goto-char (+ 1 pos))
                    (setq pos nil))
-          (setq pos (next-property-change pos buffer)))))))
+          (setq pos (next-property-change pos buffer))))
+      (let* ((sections (get-text-property (point) 'invisible))
+             (childs (emaci//get-children-section (car sections) nil))
+             (children (emaci//get-children-section (cadr sections) nil))
+             (allsections (append sections childs children)))
+        (dolist (section allsections)
+          (remove-from-invisibility-spec (cons section t)))
+        (force-window-update (get-buffer-window (current-buffer)))))))
 
 (defun emaci/mgmt-ret ()
   "When on status bar, goto job, when on job show log."
