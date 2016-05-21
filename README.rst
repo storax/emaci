@@ -32,7 +32,7 @@ Features
 Roadmap
 -------
 
-* Nicer Management buffer
+* Arbitrary Metadata
 * Translate zsh function to bash
 * Metrics
 * Commit hook
