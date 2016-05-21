@@ -31,11 +31,50 @@
 (eval-when-compile (require 'cl-lib))
 (eval-when-compile (require 'cl))
 
-
 (defgroup emaci nil
   "Customization group for emaci."
   :prefix "emaci-"
   :group 'emacs)
+
+(cl-defstruct emaci-job
+  buildno queue status statusmsg exitcode datestarted datefinished
+  oldref ref stashes buffer dir command mode highlight-regexp)
+
+(cl-defstruct emaci-section arglist)
+
+(defvar emaci-queue nil
+  "An alist of queue names as car and a list of `emaci-job' structs as cdr.
+Jobs in the queue might already be running.")
+(defvar emaci-history nil
+  "An alist of queue names as car and a list of `emaci-job' structs as cdr.
+Jobs in the history are finished or cancled.")
+(defvar emaci--buffer-job-alist nil
+  "A mapping of buffers to jobs.")
+(defvar emaci--build-counter nil
+  "The global job counter.
+It is an alist where the queue names as car and the counter number as cdr.")
+(defvar emaci-mode-history nil
+  "History for selecting modes.")
+(defvar emaci-finished-hook nil
+  "Hooks are run after the job has finished.
+They should take an `emaci-job' as argument.")
+(defvar emaci-started-hook nil
+  "Hooks are run after the job has started.
+They should take an `emaci-job' as argument.")
+(defvar emaci-mode-hook nil
+  "Hooks for the emaci management buffer mode.")
+
+(defvar emaci-mode-map
+  (let ((map (make-keymap)))
+    (define-key map (kbd "TAB") 'emaci/toggle-section)
+    (define-key map (kbd "RET") 'emaci/mgmt-ret)
+    (define-key map (kbd "k") 'emaci/kill-job)
+    (define-key map (kbd "c") 'emaci/cancel-job)
+    map)
+  "Keymap for emaci major mode.")
+
+(defvar-local emaci--sections nil
+  "Internal list for emaci sections in the management browser.")
 
 (defcustom emaci-save-dir "~/.emaci/"
    "Directory where emaci saves history and logs."
@@ -107,25 +146,6 @@
   "Face for a job of unknown status in the mgmt buffer."
   :group 'emaci)
 
-
-(cl-defstruct emaci-job
-  buildno queue status statusmsg exitcode datestarted datefinished
-  oldref ref stashes buffer dir command mode highlight-regexp)
-
-(defvar emaci-queue nil
-  "An alist of queue names as car and a list of `emaci-job' structs as cdr.
-Jobs in the queue might already be running.")
-(defvar emaci-history nil
-  "An alist of queue names as car and a list of `emaci-job' structs as cdr.
-Jobs in the history are finished or cancled.")
-(defvar emaci--buffer-job-alist nil
-  "A mapping of buffers to jobs.")
-(defvar emaci--build-counter nil
-  "The global job counter.
-It is an alist where the queue names as car and the counter number as cdr.")
-(defvar emaci-mode-history nil
-  "History for selecting modes.")
-
 (define-error 'emaci-error "Something went wrong with emaci, sry.")
 (define-error 'emaci-error-job-running "Job is already running." 'emaci-error)
 
@@ -133,7 +153,7 @@ It is an alist where the queue names as car and the counter number as cdr.")
   "Get new build number and increase the counter `emaci--build-counter'.
 If QUEUE is non-nil, use the counter for that queue.
 If QUEUE is not in the counter, it is added to it, starting with 1."
-  (let ((queue (if queue queue "*default*")))
+  (let ((queue (or queue "*default*")))
     (unless (assoc queue emaci--build-counter)
       (add-to-list 'emaci--build-counter (cons queue 0)))
     (let ((count (cdr (assoc queue emaci--build-counter))))
@@ -161,7 +181,7 @@ If HIGHLIGHT-REGEXP is non-nil, `next-error' will temporarily highlight
 the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'."
   (let ((buildno (emaci//get-buildno queue))
-        (queue (if queue queue "*default*")))
+        (queue (or queue "*default*")))
     (make-emaci-job
      :buildno buildno
      :queue queue
@@ -175,7 +195,7 @@ global value of `compilation-highlight-regexp'."
 
 (defun emaci//running-job-p (&optional queue)
   "Return t if there is a running job in QUEUE."
-  (let* ((queue (if queue queue "*default*"))
+  (let* ((queue (or queue "*default*"))
          (job (cadr (assoc queue emaci-queue))))
     (and job (eq (emaci-job-status job) 'running))))
 
@@ -261,13 +281,14 @@ Calls `emaci//job-finished'."
   (emaci//move-job-to-history job)
   (emaci//save-vars)
   (emaci//save-log job)
+  (run-hook-with-args emaci-finished-hook job)
   (emaci//git-revert job)
   (emaci/execute-next (emaci-job-queue job)))
 
 (defun emaci/execute-next (&optional queue)
   "Execute the next job in the QUEUE."
   (interactive)
-  (let* ((queue (if queue queue "*default*"))
+  (let* ((queue (or queue "*default*"))
          (job (cadr (assoc queue emaci-queue))))
     (when job
       (let ((status (emaci-job-status job)))
@@ -300,7 +321,8 @@ Calls `emaci//job-finished'."
      (emaci-job-command job)
      (emaci-job-mode job)
      `(lambda (mode) (emaci//create-buffer-name ,job))
-     (emaci-job-highlight-regexp job))))
+     (emaci-job-highlight-regexp job)))
+  (run-hook-with-args emaci-started-hook job))
 
 (defun emaci//stashes (dir)
   "Return a list of stashes of repo in DIR."
@@ -376,7 +398,7 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
       (signal-process job-proc sigcode))))
 
 (defun emaci//cancel-job1 (job)
-  "Move JOB to history and set the status to `canceled'."
+  "Set JOB status to `canceled'."
   (let ((job-status (emaci-job-status job)))
     (when (or (eq job-status 'running) (eq job-status 'queued))
       (setf (emaci-job-status job) 'canceled)
@@ -384,7 +406,7 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
 
 (defun emaci/cancel-job (job)
   "Cancel JOB by interrupting the process if it is running."
-  (interactive (list (cadr (assoc (emaci//select-queue) emaci-queue))))
+  (interactive (list (emaci//select-job "Cancel Job: " (emaci//select-queue))))
   (when job
     (let ((job-status (emaci-job-status job)))
       (when (eq job-status 'running)
@@ -394,7 +416,7 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
 
 (defun emaci/kill-job (job)
   "Cancel JOB by killing the process if it is running."
-  (interactive (list (cadr (assoc (emaci//select-queue) emaci-queue))))
+  (interactive (list (emaci//select-job "Kill Job: " (emaci//select-queue))))
   (let ((job-status (emaci-job-status job)))
     (when (eq job-status 'running)
       (emaci//signal-job 9 job))
@@ -404,10 +426,12 @@ SIGCODE may be an integer, or a symbol whose name is a signal name."
 (defun emaci//move-job-to-history (job)
   "Remove JOB from queue and put it in history."
   (let ((queue (emaci-job-queue job)))
-    (if (assoc queue emaci-history)
-        (setf (cdr (assoc queue emaci-history)) (append (cdr (assoc queue emaci-history)) (list job)))
-      (add-to-list 'emaci-history (cons queue (list job))))
-    (setf (cdr (assoc queue emaci-queue)) (delete job (cdr (assoc queue emaci-queue))))))
+    (when (member job (assoc queue emaci-queue))
+      (progn
+        (if (assoc queue emaci-history)
+            (setf (cdr (assoc queue emaci-history)) (append (cdr (assoc queue emaci-history)) (list job)))
+          (add-to-list 'emaci-history (cons queue (list job))))
+        (setf (cdr (assoc queue emaci-queue)) (delete job (cdr (assoc queue emaci-queue))))))))
 
 (defun emaci//save-var (var file)
   "Save the given VAR to FILE in `emaci-save-dir'."
@@ -669,13 +693,17 @@ See `compilation-start'.  For mode, t will be used."
           (emaci//mgmt-propface-label "Branch:")
           (if branch branch "--"))))
 
-(defun emaci//mgmt-format-command-detail (job)
-  "Return formatted command detail for JOB."
-  (let ((cmd (emaci-job-command job)))
+(defun emaci//mgmt-format-command-detail (job &optional len)
+  "Return formatted command detail for JOB.
+
+LEN is the maximum length of the command until it gets cut off.
+Defaults to 80."
+  (let ((len (or len 80))
+        (cmd (emaci-job-command job)))
     (format "%s\n%s"
             (emaci//mgmt-propface-label "Command:")
-            (if (> (length cmd) 80)
-                (concat "..." (substring cmd -80))
+            (if (> (length cmd) len)
+                (concat "..." (substring cmd (* -1 len)))
               cmd))))
 
 (defun emaci//mgmt-format-details (job)
@@ -729,9 +757,6 @@ See `compilation-start'.  For mode, t will be used."
       (lambda (job) (emaci//mgmt-buffer-format-job job))
       (reverse jobs) ""))))
 
-(defvar-local emaci--sections nil
-  "Internal list for emaci sections in the management browser.")
-
 (defun emaci//mgmt-buffer-update ()
   "Initialize the management buffer."
   (interactive)
@@ -754,8 +779,6 @@ See `compilation-start'.  For mode, t will be used."
              (if (> (length (emaci-section-arglist section)) 1)
                  (add-to-invisibility-spec (cons section t))))
            emaci--sections))))))
-
-(cl-defstruct emaci-section arglist)
 
 (defun emaci//mgmt-get-section-ident (args)
   "Return the section identifier for ARGS."
@@ -809,13 +832,30 @@ SECHIERARCHY is used for the `invisible' property."
     (t
      'emaci-mgmt-unknown-face))))
 
+(defun emaci//format-job-for-selection (job)
+  "Return a concise description of JOB."
+  (format
+   "%s #%s: %s"
+   (emaci-job-queue job)
+   (emaci-job-buildno job)
+   (emaci//mgmt-format-command-detail job)))
+
+(defun emaci//select-job (prompt queue)
+  "Return a job from QUEUE."
+  (let* ((jobs (reverse (cdr (assoc queue emaci-queue))))
+         (jobs-human (mapcar
+                      (lambda (job) (emaci//format-job-for-selection job))
+                      jobs))
+         (seljob (completing-read prompt jobs-human nil t)))
+    (nth (cl-position seljob jobs-human :test 'equal) jobs)))
+
 (defun emaci//get-children-section (section all)
   "Get all children sections of SECTION.
 
 If ALL is non-nil return also grandchildren."
   (let* ((arglist (emaci-section-arglist section))
          children)
-    (mapcar
+    (mapc
      (lambda (cand)
        (let ((secarglist (emaci-section-arglist cand))
              (larg (length arglist)))
@@ -827,7 +867,9 @@ If ALL is non-nil return also grandchildren."
     children))
 
 (defun emaci/toggle-section (arg)
-  "Open and close sections."
+  "Open and close sections.
+
+If ARG is non-nil, Apply show/close recursively."
   (interactive "P")
   (let* ((prop (car (get-text-property (point) 'invisible)))
          (arglist (when (emaci-section-p prop) (emaci-section-arglist prop))))
@@ -837,7 +879,7 @@ If ALL is non-nil return also grandchildren."
             (let ((func (if (member (cons (car children) t) buffer-invisibility-spec)
                             'remove-from-invisibility-spec
                           'add-to-invisibility-spec)))
-              (mapcar
+              (mapc
                `(lambda (child)
                   (,func (cons child t)))
                children))
@@ -859,7 +901,7 @@ If ALL is non-nil return also grandchildren."
 (defun emaci//find-job-field (job)
   "Goto the field with JOB as property value."
   (when (emaci-job-p job)
-    (beginning-of-buffer)
+    (goto-char (point-min))
     (let* ((buffer (current-buffer))
            (pos (next-property-change (point-min) buffer)))
       (while pos
@@ -883,16 +925,6 @@ If ALL is non-nil return also grandchildren."
     (if statjob
         (emaci//find-job-field statjob)
       (emaci//show-log field))))
-
-(defvar emaci-mode-hook nil
-  "Hooks for the emaci management buffer mode.")
-
-(defvar emaci-mode-map
-  (let ((map (make-keymap)))
-    (define-key map (kbd "TAB") 'emaci/toggle-section)
-    (define-key map (kbd "RET") 'emaci/mgmt-ret)
-    map)
-  "Keymap for emaci major mode.")
 
 (define-derived-mode emaci-mode special-mode "Emaci"
   "Major mode for emaci management buffer.
