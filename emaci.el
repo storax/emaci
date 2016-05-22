@@ -38,7 +38,7 @@
 
 (cl-defstruct emaci-job
   buildno queue status statusmsg exitcode datestarted datefinished
-  oldref ref stashes buffer dir command mode highlight-regexp)
+  oldref ref stashes buffer dir command mode highlight-regexp metadata)
 
 (cl-defstruct emaci-section arglist)
 
@@ -281,7 +281,7 @@ Calls `emaci//job-finished'."
   (emaci//move-job-to-history job)
   (emaci//save-vars)
   (emaci//save-log job)
-  (run-hook-with-args emaci-finished-hook job)
+  (run-hook-with-args 'emaci-finished-hook job)
   (emaci//git-revert job)
   (emaci/execute-next (emaci-job-queue job)))
 
@@ -322,7 +322,7 @@ Calls `emaci//job-finished'."
      (emaci-job-mode job)
      `(lambda (mode) (emaci//create-buffer-name ,job))
      (emaci-job-highlight-regexp job)))
-  (run-hook-with-args emaci-started-hook job))
+  (run-hook-with-args 'emaci-started-hook job))
 
 (defun emaci//stashes (dir)
   "Return a list of stashes of repo in DIR."
@@ -706,16 +706,35 @@ Defaults to 80."
                 (concat "..." (substring cmd (* -1 len)))
               cmd))))
 
+(defun emaci//mgmt-format-metadata-detail (job)
+  "Return formatted metadata for JOB."
+  (let ((metadata (emaci-job-metadata job)))
+    (if metadata
+        (concat
+         "\n"
+         (mapconcat
+          (lambda (metadata)
+            (let ((title (car metadata))
+                  (data (cdr metadata)))
+              (format
+               "%s\n%s"
+               (emaci//mgmt-propface-label (concat title ":"))
+               data)))
+          metadata
+          "\n"))
+      "")))
+
 (defun emaci//mgmt-format-details (job)
   "Return formated JOB details."
   (format
-   "\n%s %s\n%s %s\n%s\n%s"
+   "\n%s %s\n%s %s\n%s\n%s%s"
    (emaci//mgmt-format-status-detail job)
    (emaci//mgmt-format-exitcode-detail job)
    (emaci//mgmt-format-duration-detail job)
    (emaci//mgmt-format-started-detail job)
    (emaci//mgmt-format-branch-detail job)
-   (emaci//mgmt-format-command-detail job)))
+   (emaci//mgmt-format-command-detail job)
+   (emaci//mgmt-format-metadata-detail job)))
 
 (defun emaci//mgmt-buffer-format-job (job)
   "Return a formated JOB."
@@ -759,7 +778,6 @@ Defaults to 80."
 
 (defun emaci//mgmt-buffer-update ()
   "Initialize the management buffer."
-  (interactive)
   (let ((buffer? (get-buffer "*Emaci*"))
         (buffer (get-buffer-create "*Emaci*"))
         (inhibit-read-only t))
@@ -933,6 +951,12 @@ If ARG is non-nil, Apply show/close recursively."
 
 Entry to this mode calls the value of `emaci-mode-hook'
 if that value is non-nil.")
+
+(defun emaci/mgmt-buffer ()
+  "Show the emaci management buffer."
+  (interactive)
+  (emaci//mgmt-buffer-update)
+  (display-buffer "*Emaci*"))
 
 (provide 'emaci)
 

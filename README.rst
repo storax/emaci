@@ -27,12 +27,12 @@ Features
 * Select git branch for each build
 * Select stashes for each build
 * Build Management buffer
+* Hooks can add metadata to jobs
 
 -------
 Roadmap
 -------
 
-* Arbitrary Metadata
 * Translate zsh function to bash
 * Metrics
 * Commit hook
