@@ -64,6 +64,9 @@ They should take an `emaci-job' as argument.")
 (defvar emaci-mode-hook nil
   "Hooks for the emaci management buffer mode.")
 
+(defvar emaci--chuck-data
+  (split-string (file-to-string (concat (file-name-as-directory (file-name-directory load-file-name)) "chuck.data")) "\n" t))
+
 (defvar emaci-mode-map
   (let ((map (make-keymap)))
     (define-key map (kbd "TAB") 'emaci/toggle-section)
@@ -84,6 +87,11 @@ They should take an `emaci-job' as argument.")
 (defcustom emaci-max-history-len-status 50
   "Show max number of jobs from history in status buffer."
   :type 'int
+  :group 'emaci)
+
+(defcustom emaci-enable-chuck nil
+  "Enable Chuck Norris quotes."
+  :type 'boolean
   :group 'emaci)
 
 (defface emaci-statbar-success-face
@@ -287,7 +295,7 @@ Calls `emaci//job-finished'."
 
 (defun emaci/execute-next (&optional queue)
   "Execute the next job in the QUEUE."
-  (interactive)
+  (interactive (list (emaci//select-queue)))
   (let* ((queue (or queue "*default*"))
          (job (cadr (assoc queue emaci-queue))))
     (when job
@@ -727,14 +735,19 @@ Defaults to 80."
 (defun emaci//mgmt-format-details (job)
   "Return formated JOB details."
   (format
-   "\n%s %s\n%s %s\n%s\n%s%s"
+   "\n%s %s\n%s %s\n%s\n%s%s%s"
    (emaci//mgmt-format-status-detail job)
    (emaci//mgmt-format-exitcode-detail job)
    (emaci//mgmt-format-duration-detail job)
    (emaci//mgmt-format-started-detail job)
    (emaci//mgmt-format-branch-detail job)
    (emaci//mgmt-format-command-detail job)
-   (emaci//mgmt-format-metadata-detail job)))
+   (emaci//mgmt-format-metadata-detail job)
+   (if emaci-enable-chuck
+       (concat
+        "\n" (emaci//mgmt-propface-label "Chuck Norris: ")
+        (nth (random (length emaci--chuck-data)) emaci--chuck-data))
+     "")))
 
 (defun emaci//mgmt-buffer-format-job (job)
   "Return a formated JOB."

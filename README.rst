@@ -28,6 +28,7 @@ Features
 * Select stashes for each build
 * Build Management buffer
 * Hooks can add metadata to jobs
+* Chuck Norris Quotes
 
 -------
 Roadmap
@@ -44,10 +45,15 @@ Quickstart
 After you installed emaci, load it via::
 
   (require 'emaci)
+  (emaci/load-vars)
 
 Use ``emaci/submit-job`` or ``emaci/submit-job-comint`` to queue shell commands.
 The queue will get executed immediately. While the queue is running,
 you can submit more jobs. Once a job had finished, it will execute the next in the queue.
+You can specify a branch that will get checked out before the command is run.
+The original branch will be checked out after the command has finished.
+The same goes for stashes. You can apply as many stashes as you like,
+which will get reverted afterwards.
 
 Jobs are queued in ``emaci-queue`` and archived in ``emaci-history``.
 You can cancel or kill the currently running job
@@ -57,6 +63,17 @@ you have to restart the queue by calling ``emaci/execute-next``.
 The output, queue and history is saved to the ``emaci-save-dir`` directory.
 To load them execute ``(emaci/load-vars)`` after setting ``emaci-save-dir``.
 ``emaci-save-dir`` defaults to ``"~/.emaci/"``.
+
+To view the queues call ``emaci/mgmt-buffer``. This will show the emaci management buffer.
+You can expand and hide sections under your cursor by pressing ``TAB``.
+Pressing ``RET`` with the cursor on a job, will show you the output.
+Use ``c`` or ``k`` for canceling/killing a job.
+
+By default only the last 50 jobs are shown.
+You can customize this by setting ``emaci-max-history-len-status``.
+
+Like any other good CI-Server ``emaci`` supports **CHUCK NORRIS** quotes.
+Enable them by setting ``emaci-enable-chuck`` to ``t``.
 
 ----
 Why?
