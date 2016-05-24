@@ -64,8 +64,14 @@ They should take an `emaci-job' as argument.")
 (defvar emaci-mode-hook nil
   "Hooks for the emaci management buffer mode.")
 
-(defvar emaci--chuck-data
-  (split-string (file-to-string (concat (file-name-as-directory (file-name-directory load-file-name)) "chuck.data")) "\n" t))
+(defvar emaci-rms-data
+  (split-string
+   (with-temp-buffer
+     (insert-file-contents
+      (concat (file-name-as-directory (file-name-directory load-file-name)) "rms.data"))
+     (buffer-string))
+   "\n" t)
+  "A list of Richard Stallman quotes.")
 
 (defvar emaci-mode-map
   (let ((map (make-keymap)))
@@ -89,8 +95,8 @@ They should take an `emaci-job' as argument.")
   :type 'int
   :group 'emaci)
 
-(defcustom emaci-enable-chuck nil
-  "Enable Chuck Norris quotes."
+(defcustom emaci-enable-rms nil
+  "Enable Richard Stallman quotes."
   :type 'boolean
   :group 'emaci)
 
@@ -743,10 +749,10 @@ Defaults to 80."
    (emaci//mgmt-format-branch-detail job)
    (emaci//mgmt-format-command-detail job)
    (emaci//mgmt-format-metadata-detail job)
-   (if emaci-enable-chuck
+   (if emaci-enable-rms
        (concat
-        "\n" (emaci//mgmt-propface-label "Chuck Norris: ")
-        (nth (random (length emaci--chuck-data)) emaci--chuck-data))
+        "\n" (emaci//mgmt-propface-label "Richard Stallman: ")
+        (nth (random (length emaci-rms-data)) emaci-rms-data))
      "")))
 
 (defun emaci//mgmt-buffer-format-job (job)

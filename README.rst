@@ -28,7 +28,7 @@ Features
 * Select stashes for each build
 * Build Management buffer
 * Hooks can add metadata to jobs
-* Chuck Norris Quotes
+* Richard Stallman Quotes Plugin
 
 -------
 Roadmap
@@ -72,8 +72,8 @@ Use ``c`` or ``k`` for canceling/killing a job.
 By default only the last 50 jobs are shown.
 You can customize this by setting ``emaci-max-history-len-status``.
 
-Like any other good CI-Server ``emaci`` supports **CHUCK NORRIS** quotes.
-Enable them by setting ``emaci-enable-chuck`` to ``t``.
+Like any other good CI-Server ``emaci`` has a quotes plugin.
+Enable Richard Stallman quotes by setting ``emaci-enable-rms`` to ``t``.
 
 ----
 Why?
