@@ -243,12 +243,15 @@ If HIGHLIGHT-REGEXP is non-nil, `next-error' will temporarily highlight
 the matching section of the visited source line; the default is to use the
 global value of `compilation-highlight-regexp'.
 
-If DEFERRED is non-nil, don't execute the job right away if queue is empty."
+If DEFERRED is non-nil, don't execute the job right away if queue is empty.
+
+Return the schedules job."
   (let ((job (emaci//new-job queue dir command branch stashes mode highlight-regexp)))
     (emaci//queue-job job)
     (if (or (emaci//running-job-p queue) deferred)
         (emaci//mgmt-buffer-update)
-      (emaci/execute-next queue))))
+      (emaci/execute-next queue))
+    job))
 
 (defun storax//compilation-exit-function (status code msg)
   "Set the exitcode on the job with STATUS exit CODE and MSG."
@@ -592,7 +595,9 @@ apply stashes before executing the command.
 The changes will be reverted after the execution.
 
 MODE and HIGHLIGHT-REGEXP are for the compilation buffer.
-See `compilation-start'."
+See `compilation-start'.
+
+Return the submitted job."
   (interactive (let ((dir (emaci/get-dir)))
                  (list
                   (emaci//select-queue)
@@ -619,7 +624,9 @@ apply stashes before executing the command.
 The changes will be reverted after the execution.
 
 HIGHLIGHT-REGEXP is for the compilation buffer.
-See `compilation-start'.  For mode, t will be used."
+See `compilation-start'.  For mode, t will be used.
+
+Return the submitted job."
   (interactive (let ((dir (emaci/get-dir)))
                  (list
                   (emaci//select-queue)
