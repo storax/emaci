@@ -34,6 +34,7 @@ Features
 Roadmap
 -------
 
+* Complex dependency graphs
 * Translate zsh function to bash
 * Metrics
 * Commit hook
