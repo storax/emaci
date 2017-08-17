@@ -1,6 +1,6 @@
-;;; test-emaci.el --- test emaci main functions
+;;; emaci-test.el --- test emaci main functions
 
-;; Copyright (C) 2016 by David ZUBER
+;; Copyright (C) 2017 by David ZUBER
 
 ;; Author: David ZUBER <zuber.david@gmx.de>
 
@@ -800,4 +800,4 @@ BODY is the actual test."
  (emaci//schedule nil emaci-test-repo "cat file3.txt || exit 0" "branch1" emaci-stashes)
  (should-not (file-exists-p (concat emaci-test-repo "file3.txt"))))
 
-;;; test-emaci.el ends here
+;;; emaci-test.el ends here
