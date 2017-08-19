@@ -9,7 +9,7 @@
 (eval-when-compile (require 'cl))
 
 (cl-defstruct graph-shape
-  x y width height type)
+  x y width height type text dir on-top)
 
 (defun graph//half (x)
   "Devide X by two"
@@ -71,7 +71,7 @@ Starts at 0."
                                          (graph-shape-height shape)))
                  shapes))
 
-(defun graph//z-sort-shapes (shapes)
+(defun graph//x-sort-shapes (shapes)
   "Sort the given SHAPES.
 
 Shapes that start at a lower x value come first.
@@ -95,14 +95,69 @@ If they are the same width the higher shape takes precedence."
 The two current shape types are 'rect, which represent nodes and
 lines between nodes (simply rectangles of minimal width).
 The arrow heads are represented as type 'arrow."
-  (let ((text ""))
+  (let ((drawn ""))
     (dolist (ypos (graph//iter-height shapes))
-      (let ((xcur 0)
-            (sorted-shapes (graph//z-sort-shapes (graph//filter-shapes-at-ypos shapes))))
-        )
-      (setq text (concat text "\n")))
-       text))
+      (let* ((xcur 0)
+             (sorted-shapes (graph//x-sort-shapes (graph//filter-shapes-at-ypos ypos shapes)))
+             (rest-shapes sorted-shapes))
+        (while rest-shapes
+          (let ((result (graph//draw-shapes-pos ypos xcur rest-shapes node-padding)))
+            (setq xcur (cdr (assoc 'xcur result))
+                  rest-shapes (cdr (assoc 'shapes result))
+                  drawn (concat drawn (cdr (assoc 'drawn result)))))))
+      (setq drawn (concat drawn "\n")))
+       drawn))
 
+(defun graph//new-xcur (oldx first-x drawn)
+  "Returns a new xcur value.
+
+FIRST-X is the x value of the first shape that is currently drawn.
+DRAWN is the string that we got so far.
+Returns the max of OLDX and (FIRST-X + (length DRAWN))."
+  (max (+ first-x (length drawn)) oldx))
+
+(defun graph//crop-already-drawn (xcur x s)
+  "Return a string that starts at xcur.
+
+XCUR is the current x cursor possition.
+X is the x position of the shape we are drawing.
+If X is smaller than XCUR we have to drop that part
+because we already drawn over that area.
+Else we just return S."
+  (if (< x xcur)
+      (subseq s (- xcur x))
+    s))
+
+(defun graph//get-next-shapes-to-draw (overlapping shape more)
+  "Return the next shapes to draw.
+
+OVERLAPPING is a boolean if shape is currently overlapping with the first of more.
+SHAPE is the current shape that is drawn.
+MORE is the rest of the shapes."
+  (if overlapping
+      (append (list (car more) shape) (cdr more))
+    more))
+
+(defun graph//draw-shapes-pos (ypos xcur shapes node-padding)
+  "Return the text for the given position and shape and the next x position and shapes to draw."
+  (let* (drawn
+         (shape (car shapes))
+         (more (cdr shapes))
+         (x (graph-shape-x shape))
+         (y (graph-shape-y shape))
+         (width (graph-shape-width shape))
+         (text (graph-shape-text shape))
+         (dir (graph-shape-dir shape))
+         (on-top (graph-shape-on-top shape)))
+    (when (<= xcur x) ; draw spaces until the start of the first shape
+      (setq drawn (concat drawn (graph//fill \space (- x xcur)))))
+    (let* ((s something)
+           (overlapping-result )
+           (overlapping (car overlapping-result))
+           (s (cadr overlapping-result)))
+      (list (cons 'xcur (graph//new-xcur xcur x s))
+            (cons 'shapes (graph//get-next-shapes-to-draw overlapping shape more))
+            (cons 'drawn (graph//crop-already-drawn xcur x s))))))
 
     ;; (let [xcur (atom 0)
     ;;       sorted-shapes (sort (fn [a b]

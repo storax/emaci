@@ -90,12 +90,12 @@
          (expected (list (car shapes) (caddr shapes))))
     (should (equal expected (graph//filter-shapes-at-ypos 6 shapes)))))
 
-(ert-deftest z-sort-shapes ()
+(ert-deftest x-sort-shapes ()
   "Test sorting shapes."
   (let ((assert (lambda (expected input)
-                  (should (equal expected (graph//z-sort-shapes input)))
-                  (should (equal expected (graph//z-sort-shapes (reverse input))))
-                  (should (equal expected (graph//z-sort-shapes expected))))))
+                  (should (equal expected (graph//x-sort-shapes input)))
+                  (should (equal expected (graph//x-sort-shapes (reverse input))))
+                  (should (equal expected (graph//x-sort-shapes expected))))))
     (let ((a (make-graph-shape :x 3))
           (b (make-graph-shape :x 1)))
       (assert (list b a) (list a b)))
@@ -104,12 +104,41 @@
       (assert (list b a) (list a b)))
     (let ((a (make-graph-shape :x 1 :width 1 :height 1))
           (b (make-graph-shape :x 1 :width 1 :height 10)))
-      (should (equal (list b a) (graph//z-sort-shapes (list a b)))))
+      (assert (list b a) (list a b)))
     (let ((a (make-graph-shape :x 1 :width 1 :height 10))
           (b (make-graph-shape :x 1 :width 1 :height 1)))
-      (should (equal (list a b) (graph//z-sort-shapes (list a b)))))
+      (assert (list a b) (list a b)))
     (let ((a (make-graph-shape :x 1 :width 1 :height 1))
           (b (make-graph-shape :x 1 :width 1 :height 1)))
-      (should (equal (list a b) (graph//z-sort-shapes (list a b)))))))
+      (assert (list a b) (list a b)))))
+
+(ert-deftest draw-shapes-frame ()
+  "Test the frame around the main loop in `grap//draw-shapes'."
+  (cl-letf (((symbol-function 'graph//draw-shapes-pos)
+             (lambda (ypos xcur shapes node-padding)
+               (list (cons 'xcur (+ xcur 1))
+                     (cons 'drawn (number-to-string xcur))
+                     (cons 'shapes (cdr shapes))))))
+    (let ((shapes (list
+                   (make-graph-shape :x 2 :y 3 :height 4 :width 4)
+                   (make-graph-shape :x 4 :y 1 :height 4 :width 3)))
+          (expected "\n0\n0\n01\n01\n0\n0\n\n"))
+      (should (equal expected (graph//draw-shapes shapes 1))))))
+
+(ert-deftest new-xcur ()
+  "Test moving the xcursor"
+  (should (equal 8 (graph//new-xcur 5 2 "123456")))
+  (should (equal 8 (graph//new-xcur 8 2 "12")))
+  (should (equal 8 (graph//new-xcur 8 2 "123456"))))
+
+(ert-deftest crop-already-drawn ()
+  "Test cropping a string so it doesn't overlap with what we've already drawn."
+  (should (equal "3456" (graph//crop-already-drawn 5 3 "123456")))
+  (should (equal "123456" (graph//crop-already-drawn 2 5 "123456"))))
+
+(ert-deftest get-next-shapes-to-draw ()
+  "Test getting the next shapes."
+  (should (equal '(1 0 2 3) (graph//get-next-shapes-to-draw t 0 '(1 2 3))))
+  (should (equal '(1 2 3) (graph//get-next-shapes-to-draw nil 0 '(1 2 3)))))
 
 ;; graph-test.el ends here
