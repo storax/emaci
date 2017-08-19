@@ -17,7 +17,7 @@
 
 (defun graph//fill (c &optional n)
   "Returns a string with the character C repeated N times."
-  (let ((n (or n 1)))
+  (let ((n (max 0 (or n 1))))
     (make-string n c)))
 
 (defun graph//integer-shapes (shapes)
@@ -138,6 +138,51 @@ MORE is the rest of the shapes."
       (append (list (car more) shape) (cdr more))
     more))
 
+(defun graph//draw-border (type dir width)
+  "Draw the border of a shape.
+
+Shape has the given TYPE, DIR and WIDTH."
+  (concat
+   (cond ((eq 'arrow type)
+          (or (cdr (assoc dir '((right . ">")
+                                (left . "<")
+                                (up . "^")
+                                (down . "V"))))
+              "*"))
+         ((eq 'cap type)
+          (cdr (assoc dir '((right . "-")
+                            (left . "-")
+                            (up . "|")
+                            (down . "|")))))
+         (t "+"))
+   (graph//fill ?- (- width 2))
+   (when (> width 1)
+     "+")))
+
+(defun graph//draw-body-line (ypos y width text)
+  "Draw the body of a shape for a given ypos."
+  (concat
+   "|"
+   (when (> width 1)
+     (let* ((index (- ypos y 1))
+            (s (if (>= index (length text))
+                   ""
+                 (string (elt text index)))))
+       (concat s (graph//fill ?\s (- width (length s) 2)))))
+   "|"))
+
+(defun graph//draw-at-ypos (ypos shape)
+  "Draw at YPOS the given SHAPE."
+  (let ((dir (graph-shape-dir shape))
+        (type (graph-shape-type shape))
+        (width (graph-shape-width shape))
+        (height (graph-shape-height shape))
+        (y (graph-shape-y shape))
+        (text (graph-shape-text shape)))
+    (if (equal 'on (graph//rect-relation ypos y height))
+        (graph//draw-border type dir width)
+      (graph//draw-body-line ypos y width text))))
+
 (defun graph//draw-shapes-pos (ypos xcur shapes node-padding)
   "Return the text for the given position and shape and the next x position and shapes to draw."
   (let* (drawn
@@ -150,9 +195,9 @@ MORE is the rest of the shapes."
          (dir (graph-shape-dir shape))
          (on-top (graph-shape-on-top shape)))
     (when (<= xcur x) ; draw spaces until the start of the first shape
-      (setq drawn (concat drawn (graph//fill \space (- x xcur)))))
-    (let* ((s something)
-           (overlapping-result )
+      (setq drawn (concat drawn (graph//fill ?\s (- x xcur)))))
+    (let* ((s (graph//draw-at-ypos ypos shape dir width text))
+           (overlapping-result ;; TODO)
            (overlapping (car overlapping-result))
            (s (cadr overlapping-result)))
       (list (cons 'xcur (graph//new-xcur xcur x s))
@@ -1227,66 +1272,6 @@ MORE is the rest of the shapes."
 ;;                       :nop nil))
 ;;               (newline))))
 ;;         (recur (rest rows))))))
-
-;; ;Graphical Routines
-
-;; ;;Maintained By Conrad Barski- Licensed under GPLV3
-
-;; (def image-wrap-threshold 20)
-
-;; (def image-dim {:width-fn (fn [text]
-;;                             (* (+ (min image-wrap-threshold (count text)) 4) 7))
-;;                 :height-fn (fn [text]
-;;                              (* (+ (count (wrap text image-wrap-threshold)) 2) 9))
-;;                 :wrap-fn (fn 
-;;                            ([text]
-;;                               (vec (map #(apply str " " %) (wrap text image-wrap-threshold))))
-;;                            ([text width height]
-;;                               (vec (map #(apply str " " %) (center (wrap text (/ (- width 4) 7)) (/ (- width 4) 7) (/ (- height 3) 9))))))
-;;                 :node-padding 10
-;;                 :row-padding 80
-;;                 :line-wid 3
-;;                 :line-padding 10})
-
-;; (defun save-image 
-;;   "This is just a convenience function for the examples- Saves a bitmap to a file."  
-;;   [img name]
-;;   (let [file (new File (str name ".png"))]
-;;     (ImageIO/write (cast java.awt.image.BufferedImage img) "png" file)))
-
-;; (def arrow-size 5)
-
-;; (defun draw-shapes-image
-;;   "Draws a list of shapes to an awt image."
-;;   [{:keys [line-wid]} shapes]
-;;   (let [img (new BufferedImage (shapes-width shapes) (shapes-height shapes)(. BufferedImage TYPE_4BYTE_ABGR))
-;;         graphics (. img createGraphics)]
-;;     (doseq [{:keys [type x y width height text]} shapes]
-;;       (when (= type :rect)
-;;         (when (= height line-wid)
-;;           (.setColor graphics (Color. 255 255 255))
-;;           (.fillRect graphics (+ x line-wid) (- y line-wid) (- width (* 2 line-wid)) (* line-wid 3)))
-;;         (when (= width line-wid)
-;;           (.setColor graphics (Color. 255 255 255))
-;;           (.fillRect graphics (- x line-wid) (+ y line-wid) (* line-wid 3) (- height (* 2 line-wid))))
-;;         (.setColor graphics (Color. 0 0 0))
-;;         (.fillRect graphics x y width height)
-;;         (.setColor graphics (Color. 240 240 240))
-;;         (.fillRect graphics (+ x line-wid) (+ y line-wid) (- width (* line-wid 2)) (- height (* line-wid 2)))
-;;         (.setColor graphics (Color. 0 0 0))
-;;         (doseq [[s n] (map vector (seq text) (iterate inc 0))]
-;;           (.drawString graphics s (floor (+ 2 x)) (floor (+ y 8 (* n 10)))))))
-;;     (doseq [{:keys [type x y width height dir]} shapes]
-;;       (when (= type :arrow)
-;;         (.setColor graphics (Color. 255 255 255))
-;;         (.fillRect graphics x y width height)
-;;         (.setColor graphics (Color. 0 0 0))
-;;         (condp = dir
-;;           :left (.fillPolygon graphics (int-array [x (+ x arrow-size) (+ x arrow-size)]) (int-array [(+ y (half height)) (- (+ y (half height)) arrow-size) (+ y (half height) arrow-size)]) 3)
-;;           :right (.fillPolygon graphics (int-array [(+ x width) (- (+ x width) arrow-size) (- (+ x width) arrow-size)]) (int-array [(+ y (half height)) (- (+ y (half height)) arrow-size) (+ y (half height) arrow-size)]) 3)
-;;           :up (.fillPolygon graphics (int-array [(inc (+ x (half width))) (- (+ x (half width)) arrow-size) (+ x (half width) arrow-size 1)]) (int-array [(dec y) (+ y arrow-size) (+ y arrow-size)]) 3)
-;;           :down (.fillPolygon graphics (int-array [(+ x (half width)) (- (+ x (half width)) arrow-size) (+ x (half width) arrow-size)]) (int-array [(+ y height) (- (+ y height) arrow-size) (- (+ y height) arrow-size)]) 3))))
-;;     img))
 
 ;; ;;Exported functions for interfacing with this library
 

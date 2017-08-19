@@ -34,10 +34,12 @@
   "Test dividing things by two."
   (should (equal (/ 3 2.0) (graph//half 3))))
 
-(ert-deftest fill-default ()
+(ert-deftest fill ()
   "Test fill."
   (should (equal "a" (graph//fill ?a)))
-  (should (equal "aaa" (graph//fill ?a 3))))
+  (should (equal "aaa" (graph//fill ?a 3)))
+  (should (equal "" (graph//fill ?a 0)))
+  (should (equal "" (graph//fill ?a -1))))
 
 (ert-deftest integer-shapes ()
   "Test rounding off shapes."
@@ -140,5 +142,36 @@
   "Test getting the next shapes."
   (should (equal '(1 0 2 3) (graph//get-next-shapes-to-draw t 0 '(1 2 3))))
   (should (equal '(1 2 3) (graph//get-next-shapes-to-draw nil 0 '(1 2 3)))))
+
+(ert-deftest draw-border ()
+  (should (equal ">" (graph//draw-border 'arrow 'right 1)))
+  (should (equal "<" (graph//draw-border 'arrow 'left 1)))
+  (should (equal "<+" (graph//draw-border 'arrow 'left 2)))
+  (should (equal "<----+" (graph//draw-border 'arrow 'left 6)))
+  (should (equal "^" (graph//draw-border 'arrow 'up 1)))
+  (should (equal "V" (graph//draw-border 'arrow 'down 1)))
+  (should (equal "*" (graph//draw-border 'arrow nil 1)))
+  (should (equal "-" (graph//draw-border 'cap 'right 1)))
+  (should (equal "-" (graph//draw-border 'cap 'left 1)))
+  (should (equal "-+" (graph//draw-border 'cap 'left 2)))
+  (should (equal "-----+" (graph//draw-border 'cap 'left 6)))
+  (should (equal "|" (graph//draw-border 'cap 'up 1)))
+  (should (equal "|" (graph//draw-border 'cap 'down 1)))
+  (should (equal "+" (graph//draw-border 'box nil 1)))
+  (should (equal "++" (graph//draw-border 'box nil 2)))
+  (should (equal "+-+" (graph//draw-border 'box nil 3)))
+  (should (equal "+----+" (graph//draw-border 'box nil 6))))
+
+(ert-deftest draw-body-line ()
+  (should (equal "|    |" (graph//draw-body-line 7 2 6 "asdf")))
+  (should (equal "|f  |" (graph//draw-body-line 6 2 5 "asdf")))
+  (should (equal "|d|" (graph//draw-body-line 4 1 3 "asdf")))
+  (should (equal "| |" (graph//draw-body-line 4 -10 3 "asdf")))
+  (should (equal "||" (graph//draw-body-line 7 2 2 "asdf"))))
+
+(ert-deftest draw-at-ypos ()
+  (should (equal "+----+" (graph//draw-at-ypos 7 (make-graph-shape :y 7 :height 6 :width 6 :text "asdf"))))
+  (should (equal "+----+" (graph//draw-at-ypos 7 (make-graph-shape :y 2 :height 6 :width 6 :text "asdf"))))
+  (should (equal "|f   |" (graph//draw-at-ypos 7 (make-graph-shape :y 3 :height 6 :width 6 :text "asdf")))))
 
 ;; graph-test.el ends here
