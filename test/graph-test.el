@@ -32,7 +32,7 @@
 
 (ert-deftest half ()
   "Test dividing things by two."
-  (should (equal (/ 3 2.0) (graph//half 3))))
+  (should (equal (/ 3 2) (graph//half 3))))
 
 (ert-deftest fill ()
   "Test fill."
@@ -163,15 +163,45 @@
   (should (equal "+----+" (graph//draw-border 'box nil 6))))
 
 (ert-deftest draw-body-line ()
-  (should (equal "|    |" (graph//draw-body-line 7 2 6 "asdf")))
-  (should (equal "|f  |" (graph//draw-body-line 6 2 5 "asdf")))
-  (should (equal "|d|" (graph//draw-body-line 4 1 3 "asdf")))
-  (should (equal "| |" (graph//draw-body-line 4 -10 3 "asdf")))
-  (should (equal "||" (graph//draw-body-line 7 2 2 "asdf"))))
+  (should (equal "|    |" (graph//draw-body-line 7 2 6 (graph//wrap-fn "asdf" 6 2))))
+  (should (equal "|  bar  |" (graph//draw-body-line 5 2 9 (graph//wrap-fn "foo bar spam" 9 9))))
+  (should (equal "| d|" (graph//draw-body-line 4 1 3 (graph//wrap-fn "asdf" 3 2))))
+  (should (equal "| |" (graph//draw-body-line 4 -10 3 (graph//wrap-fn "asdf" 3 2))))
+  (should (equal "||" (graph//draw-body-line 7 2 2 (graph//wrap-fn "asdf" 3 2)))))
 
 (ert-deftest draw-at-ypos ()
-  (should (equal "+----+" (graph//draw-at-ypos 7 (make-graph-shape :y 7 :height 6 :width 6 :text "asdf"))))
-  (should (equal "+----+" (graph//draw-at-ypos 7 (make-graph-shape :y 2 :height 6 :width 6 :text "asdf"))))
-  (should (equal "|f   |" (graph//draw-at-ypos 7 (make-graph-shape :y 3 :height 6 :width 6 :text "asdf")))))
+  (should (equal "+----+" (graph//draw-at-ypos 7 (make-graph-shape :y 7 :height 6 :width 6 :text '("asdf")))))
+  (should (equal "+----+" (graph//draw-at-ypos 7 (make-graph-shape :y 2 :height 6 :width 6 :text '("asdf")))))
+  (should (equal "|asdf|" (graph//draw-at-ypos 7 (make-graph-shape :y 3 :height 6 :width 6 :text '("" "" "" "asdf"))))))
 
+(ert-deftest positions ()
+  "Test getting positions"
+  (should (equal '(3 4 5) (graph//positions (lambda (x) (> x 2)) '(0 1 2 3 4 5)))))
+
+(ert-deftest wrap ()
+  "Test wrapping text"
+  (should (equal '("foo" "spam" "longg" "g") (graph//wrap "foo spam longgg" 5)))
+  (should (equal nil (graph//wrap "" 5)))
+  (should (equal '("f" "o" "o") (graph//wrap "foo" 1)))
+  (should (equal '("foo spam" "bar") (graph//wrap "foo spam bar" 9)))
+  (should (equal '("foo" "spam" "bar") (graph//wrap "foo spam bar" 4)))
+  (should (equal '("foo" "spam" "bar") (graph//wrap "foo spam bar" 5))))
+
+(ert-deftest wrap-fn ()
+  "Test wrapping text again"
+  (should (equal '(" f" " o" " o" " s" " p" " a" " m" " b" " a" " r") (graph//wrap-fn "foo spam bar" 4 10)))
+  (should (equal '(" foo" " spam" " bar") (graph//wrap-fn "foo spam bar" 8 6)))
+  (let ((graph-ascii-wrap-threshold 5))
+    (should (equal '(" foo" " spam" " bar") (graph//wrap-fn "foo spam bar")))))
+
+(ert-deftest center ()
+  "Test centering text"
+  (should (equal '("" "foo") (graph//center '("foo") 3 3)))
+  (should (equal '("foo") (graph//center '("foo") 3 2)))
+  (should (equal '("foo") (graph//center '("foo") 3 1)))
+  (should (equal '(" foo" "spam" " bar") (graph//center '("foo" "spam" "bar") 5 3)))
+  (should (equal '("foo" "bar") (graph//center '("foo" "bar") 3 3)))
+  (should (equal '("" "" "foo" "bar") (graph//center '("foo" "bar") 3 6)))
+  (should (equal '("" "   foo" "  spam") (graph//center '("foo" "spam") 9 5)))
+  )
 ;; graph-test.el ends here

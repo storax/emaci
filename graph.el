@@ -13,7 +13,7 @@
 
 (defun graph//half (x)
   "Devide X by two"
-  (/ x 2.0))
+  (/ x 2))
 
 (defun graph//fill (c &optional n)
   "Returns a string with the character C repeated N times."
@@ -167,7 +167,7 @@ Shape has the given TYPE, DIR and WIDTH."
      (let* ((index (- ypos y 1))
             (s (if (>= index (length text))
                    ""
-                 (string (elt text index)))))
+                 (elt text index))))
        (concat s (graph//fill ?\s (- width (length s) 2)))))
    "|"))
 
@@ -183,6 +183,17 @@ Shape has the given TYPE, DIR and WIDTH."
         (graph//draw-border type dir width)
       (graph//draw-body-line ypos y width text))))
 
+(defun graph//get-overlapping-text (s x width on-top shapes)
+  (or
+   (dolist (shape shapes)
+    (let ((x2 (graph-shape-x shape))
+          (width2 (graph-shape-width shape))
+          (on-top2 (graph-shape-on-top shape)))
+      (when (<= width2 (+ x width))
+        (when (and (<= (+ x2 width2) (+ x width)) (or (not on-top) on-top2))
+          (return (list (< (+ x2 width2) (+ x width)) (substring s 0 (- x2 x))))))))
+   (list nil s)))
+
 (defun graph//draw-shapes-pos (ypos xcur shapes node-padding)
   "Return the text for the given position and shape and the next x position and shapes to draw."
   (let* (drawn
@@ -196,66 +207,13 @@ Shape has the given TYPE, DIR and WIDTH."
          (on-top (graph-shape-on-top shape)))
     (when (<= xcur x) ; draw spaces until the start of the first shape
       (setq drawn (concat drawn (graph//fill ?\s (- x xcur)))))
-    (let* ((s (graph//draw-at-ypos ypos shape dir width text))
-           (overlapping-result ;; TODO)
+    (let* ((s (graph//draw-at-ypos ypos shape))
+           (overlapping-result (graph//get-overlapping-text s x width on-top more))
            (overlapping (car overlapping-result))
            (s (cadr overlapping-result)))
       (list (cons 'xcur (graph//new-xcur xcur x s))
             (cons 'shapes (graph//get-next-shapes-to-draw overlapping shape more))
-            (cons 'drawn (graph//crop-already-drawn xcur x s))))))
-
-    ;; (let [xcur (atom 0)
-    ;;       sorted-shapes (sort (fn [a b]
-    ;;                             (or (< (a :x) (b :x)) (and (= (a :x) (b :x)) (< (a :width) (b :width))) (and (= (a :x) (b :x)) (= (a :width) (b :width)) (> (a :height) (b :height)))))
-    ;;                           (filter (fn [shape]
-    ;;                                     (rect-relation ypos shape))
-    ;;                                   shapes))]
-    ;;   (loop [shapes sorted-shapes]
-    ;;     (when-let [[{:keys [x y width text type dir on-top] :as shape} & more] (seq shapes)]
-    ;;       (do (when (<= @xcur x)
-    ;;             (print (fill \space (- x @xcur))))
-    ;;           (let [s (if (= :on (rect-relation ypos shape))
-    ;;                     (str (condp = type 
-    ;;                            :arrow (condp = dir
-    ;;                                     :right \>
-    ;;                                     :left \<
-    ;;                                     :up \^
-    ;;                                     :down \V
-    ;;                                     \*)
-    ;;                            :cap (condp = dir
-    ;;                                   :right \-
-    ;;                                   :left \-
-    ;;                                   :up \|
-    ;;                                   :down \|)
-    ;;                            \+)
-    ;;                          (fill \- (- width 2))
-    ;;                          (when (> width 1)
-    ;;                            \+))
-    ;;                     (str \|
-    ;;                          (when (> width 1)
-    ;;                            (let [index (- ypos y 1)
-    ;;                                  s (if (>= index (count text))
-    ;;                                      ""
-    ;;                                      (text index))]
-    ;;                              (str s (fill \space (- width (count s) 2)) \|)))))
-    ;;                 [overlapping s] (let [[x2 width2] (loop [k more]
-    ;;                                                     (when-let [[{x2 :x width2 :width on-top2 :on-top} & more] (seq k)]
-    ;;                                                       (when (<= x2 (+ x width))
-    ;;                                                         (if (and (<= (+ x2 width2) (+ x width)) (or (not on-top) on-top2))
-    ;;                                                           [x2 width2]
-    ;;                                                           (recur more)))))]
-    ;;                                   (if x2
-    ;;                                     [(< (+ x2 width2) (+ x width)) (apply str (take (- x2 x) s))]
-    ;;                                     [false s]))]
-    ;;             (print (if (< x @xcur)
-    ;;                      (apply str (drop (- @xcur x) s))
-    ;;                      s))
-    ;;             (compare-and-set! xcur @xcur (max (+ x (count s)) @xcur))
-    ;;             (recur (if overlapping
-    ;;                      (concat [(first more) shape] (next more))
-    ;;                      more)))))))
-    ;; (prn)))
-
+            (cons 'drawn (concat drawn (graph//crop-already-drawn xcur x s)))))))
 
 ;; (defun out 
 ;;   "like 'print' but without inserted spaces and fully flushed"
@@ -278,6 +236,16 @@ Shape has the given TYPE, DIR and WIDTH."
 ;;        (apply str (replace {\- \space} (name text)))
 ;;        (str text)))
 
+(defun graph//center (lines width height)
+  "Center the given lines."
+  (let ((n (length lines))
+        (lines (mapcar (lambda (s)
+                         (concat (make-string (graph//half (- width (length s))) ?\s) s))
+                       lines)))
+    (if (< n height)
+        (append (cl-loop repeat (graph//half (- height n)) collect "") lines)
+      lines)))
+
 ;; (defun center [lines width height]
 ;;   (vec (let [n (count lines)
 ;;              lines (map (fn [s]
@@ -287,17 +255,30 @@ Shape has the given TYPE, DIR and WIDTH."
 ;;            (concat (repeat (half (- height n)) [""]) lines)
 ;;            lines))))
 
-;; (defun wrap [text width]
-;;   "This function optimally wraps text to fit within a given number of characters, given a monospace font"
-;;   (let [text (letfn [[f [text]
-;;                       (lazy-seq (if (<= (count text) width)
-;;                                   [text]
-;;                                   (let [spc (positions (partial = \space) (take width text))]
-;;                                     (if (seq spc)
-;;                                       (cons (take (last spc) text) (f (drop (inc (last spc)) text)))
-;;                                       (cons (take width text) (f (drop width text)))))))]]
-;;                (map (partial apply str) (f text)))]
-;;     text))
+(defun graph//positions (pred coll)
+  "Returns a sequence containing the positions at which pred
+   is true for items in coll."
+  (cl-loop for x to (- (length coll) 1) when (funcall pred (elt coll x)) collect x))
+
+(defun graph//wrap (text width)
+  "Optimally wrap text to fit within a given number of characters, given a monospace font"
+  (mapcar 'concat (graph//-wrap text width)))
+
+(defun graph//-wrap (text width)        ;
+  (let (lines)
+    (while (> (length text) 0)
+      (let* ((mw (min width (length text)))
+             (spc (graph//positions (lambda (x) (equal ?\s x)) (substring text 0 mw))))
+        (if spc
+            (if (= 0 (car (last spc)))
+                (setq text (substring text 1))
+              (progn
+                (setq lines (nconc lines (cons (substring text 0 (car (last spc))) nil))
+                      text (substring text (+ 1 (car (last spc)))))))
+          (progn
+            (setq lines (nconc lines (cons (substring text 0 mw) nil))
+                  text (substring text mw))))))
+    lines))
 
 ;; (defun horizontal [dir]
 ;;   (#{:right :left} dir))
@@ -351,7 +332,18 @@ Shape has the given TYPE, DIR and WIDTH."
 
 ;; ;;This code is specific to ascii rendering
 
-;; (def ascii-wrap-threshold 10) ;During ascii rendering, text in boxes will wrap after this many characters.
+(defvar graph-ascii-wrap-threshold 10
+  "During ascii rendering, text in boxes wrap after this many characters.")
+
+(defun graph//wrap-fn (text &optional width height)
+  (if (not width)
+      (mapcar (lambda (x) (concat " " x))
+              (graph//wrap text graph-ascii-wrap-threshold))
+    (mapcar (lambda (x)
+              (concat " " x))
+            (graph//center (graph//wrap text (max 1 (- width 4)))
+                           (max 1 (- width 4))
+                           (- height 3)))))
 
 ;; (def ascii-dim {:width-fn (fn [text]
 ;;                              (+ (min ascii-wrap-threshold (count text)) 4))
