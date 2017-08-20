@@ -264,4 +264,22 @@
   (should (equal '((0 5) (6 12) (9 10))
                  (graph//scan-add
                   '((0 5) (7 10)) 6 12 3))))
+
+(ert-deftest scan-lowest-y ()
+  "Test finding the lowest y to prevent intersection."
+  (should (equal 5 (graph//scan-lowest-y '((0 5) (7 10)) 3 3)))
+  (should (equal 10 (graph//scan-lowest-y '((0 5) (7 10)) 3 5)))
+  (should (equal 10 (graph//scan-lowest-y '((0 5) (7 10)) 20 5))))
+
+(ert-deftest height-fn ()
+  "Test calculating height of a box."
+  (should (equal 3 (graph//height-fn "asdf")))
+  (should (equal 4 (graph//height-fn "1234567890 1231246")))
+  (should (equal 2 (graph//height-fn ""))))
+
+(ert-deftest width-fn ()
+  "Test calculating height of a box."
+  (should (equal 4 (graph//width-fn "")))
+  (should (equal (+ 4 graph-ascii-wrap-threshold) (graph//width-fn "1234567890 1231246")))
+  (should (equal 8 (graph//width-fn "asdf"))))
 ;; graph-test.el ends here

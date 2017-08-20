@@ -317,28 +317,33 @@ Scan is a list of (x y) pairs."
   (let ((xend (+ x wid)))
     (graph//-scan-advance scan nil x y xend)))
 
-;; (defun scan-lowest-y
-;;   "Finds the lowest y that is available at x with width y that would prevent it from intersecting with the scan."
-;;   [scan x width]
-;;   (loop [scan scan
-;;          cury nil
-;;          besty nil]
-;;     (if (seq scan)
-;;       (let [[[ax ay] & d] scan]
-;;         (cond (<= (+ x width) ax) (if besty
-;;                                    (max besty cury)
-;;                                    cury)
-;;               (< x ax) (recur d 
-;;                                ay 
-;;                                (if besty
-;;                                  (max besty ay cury)
-;;                                  (if cury
-;;                                    (max ay cury)
-;;                                    ay)))
-;;               true (recur d ay besty)))
-;;       (if besty
-;;         (max besty cury)
-;;         cury))))
+(defun graph//scan-lowest-y (scan x width)
+  "Finds the lowest y that is available at x with width y
+that would prevent it from intersecting with the scan."
+  (let (cury besty)
+    (or (cl-loop
+        while scan do
+        (let ((ax (caar scan))
+              (ay (cadar scan))
+              (d (cdr scan)))
+          (cond
+           ((<= (+ x width) ax)
+            (if besty
+                (return (max besty cury))
+              (return cury)))
+           ((< x ax)
+            (setq scan d
+                  cury ay
+                  besty (if besty
+                            (max besty ay cury)
+                          (if cury
+                              (max ay cury)
+                            ay))))
+           (t (setq scan d
+                    cury ay)))))
+        (if besty
+            (max besty cury)
+          cury))))
 
 ;; ;;This code is specific to ascii rendering
 
@@ -355,19 +360,25 @@ Scan is a list of (x y) pairs."
                            (max 1 (- width 4))
                            (- height 3)))))
 
-;; (def ascii-dim {:width-fn (fn [text]
-;;                              (+ (min ascii-wrap-threshold (count text)) 4))
-;;                  :height-fn (fn [text]
-;;                               (+ (count (wrap text ascii-wrap-threshold)) 2))
-;;                  :wrap-fn (fn 
-;;                             ([text]
-;;                                (vec (map #(apply str " " %) (wrap text ascii-wrap-threshold))))
-;;                             ([text width height]
-;;                                (vec (map #(apply str " " %) (center (wrap text (- width 4)) (- width 4) (- height 3))))))
-;;                  :node-padding 1
-;;                  :row-padding 8
-;;                  :line-wid 1
-;;                  :line-padding 1})
+(defvar graph-node-padding 1
+  "Padding between nodes.")
+
+(defvar graph-row-padding 8
+  "Padding between rows")
+
+(defvar graph-line-wid 1
+  "Line width")
+
+(defvar graph-line-padding 1
+  "Line padding")
+
+(defun graph//height-fn (text)
+  "Height of a box given a text."
+  (+ (length (graph//wrap text graph-ascii-wrap-threshold)) 2))
+
+(defun graph//width-fn (text)
+  "Width of a box given a text."
+  (+ (min (length text) graph-ascii-wrap-threshold) 4))
 
 ;; ;;Functions specific to tree drawing 
 
