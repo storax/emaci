@@ -14,7 +14,7 @@
   x y width height type text dir on-top)
 
 (cl-defstruct graph-treen
-  id x y width height text line-right line-left line-ypos leaf parent parent-line-y children)
+  id x y width height text wrapped-text line-right line-left line-ypos leaf parent parent-line-y children)
 
 (defun graph//half (x)
   "Devide X by two"
@@ -443,25 +443,22 @@ This is needed since items in the same row and their widths will affect the spac
                                        newc))
                                    children)))
                        tree)))))
-;; (defun make-rows 
-;;   "Takes a tree and converts it into rows. This is needed since items in the same row and their widths will affect the spacing and layout of items."
-;;   [tree]
-;; (when (seq tree)
-;;   (cons (map (fn [{:keys [text id parent children]}]
-;;                {:text text :id id :parent parent :leaf (empty? children)})
-;;              tree)
-;;         (make-rows (mapcat (fn [{:keys [id children]}]
-;;                              (map #(assoc % :parent id) children))
-;;                            tree)))))
 
-;; (defun wrap-text
-;;   "calculates the wrapped text of each tree item and the resulting height based on how the text was broken into lines"
-;;   [{:keys [wrap-fn height-fn]} rows]
-;;   (map (fn [row]
-;;          (map (fn [{:keys [text] :as item}]
-;;                 (assoc item :wrapped-text (wrap-fn text) :height (height-fn text)))
-;;              row))
-;;        rows))
+(defun graph//wrap-text (rows)
+  "Calculate the wrapped text of each tree item and their height.
+
+The height depends on how the text is broken into lines."
+  (mapcar
+   (lambda (row)
+     (mapcar (lambda (item)
+               (let ((text (graph-treen-text item))
+                     (newitem (copy-graph-treen item)))
+                 (setf (graph-treen-wrapped-text newitem) (graph//wrap-fn text)
+                       (graph-treen-height newitem) (graph//height-fn text))
+                 newitem))
+             row))
+   rows))
+
 
 ;; (defun row-pos 
 ;;   "Calculates preliminary x positions for nodes in a tree. This will be refined later by the calculations from the 'space' functions."

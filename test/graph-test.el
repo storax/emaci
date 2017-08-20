@@ -342,5 +342,18 @@
                                                      (make-graph-treen :id 5 :text "5")
                                                      (make-graph-treen :id 6 :text "6"))))))))
 
+(ert-deftest wrap-text ()
+  "Test wrapping the text of a tree's rows."
+  (should (equal (list
+                  (list (make-graph-treen :id 1 :height 4 :text "1234567890 asdfsadf"
+                                          :wrapped-text (list " 1234567890" " asdfsadf")))
+                  (list (make-graph-treen :id 2 :height 3 :text "123" :wrapped-text (list " 123"))
+                        (make-graph-treen :id 6 :height 5 :text "1234567890 asdfsadf 1231231231"
+                                          :wrapped-text (list " 1234567890" "  asdfsadf" " 1231231231"))))
+                 (graph//wrap-text
+                  (list
+                   (list (make-graph-treen :id 1 :text "1234567890 asdfsadf"))
+                   (list (make-graph-treen :id 2 :text "123")
+                         (make-graph-treen :id 6 :text "1234567890 asdfsadf 1231231231")))))))
 
 ;; graph-test.el ends here
