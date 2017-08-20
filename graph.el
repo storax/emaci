@@ -13,6 +13,9 @@
 (cl-defstruct graph-shape
   x y width height type text dir on-top)
 
+(cl-defstruct graph-treen
+  x y width height text line-right line-left line-ypos leaf parent-line-y)
+
 (defun graph//half (x)
   "Devide X by two"
   (/ x 2))
@@ -127,7 +130,7 @@ If X is smaller than XCUR we have to drop that part
 because we already drawn over that area.
 Else we just return S."
   (if (< x xcur)
-      (subseq s (- xcur x))
+      (subseq s (min (length s) (- xcur x)))
     s))
 
 (defun graph//get-next-shapes-to-draw (overlapping shape more)
@@ -193,7 +196,7 @@ Shape has the given TYPE, DIR and WIDTH."
           (on-top2 (graph-shape-on-top shape)))
       (when (<= width2 (+ x width))
         (when (and (<= (+ x2 width2) (+ x width)) (or (not on-top) on-top2))
-          (return (list (< (+ x2 width2) (+ x width)) (substring s 0 (- x2 x))))))))
+          (return (list (< (+ x2 width2) (+ x width)) (substring s 0 (min (length s) (- x2 x)))))))))
    (list nil s)))
 
 (defun graph//draw-shapes-pos (ypos xcur shapes node-padding)
@@ -380,19 +383,43 @@ that would prevent it from intersecting with the scan."
   "Width of a box given a text."
   (+ (min (length text) graph-ascii-wrap-threshold) 4))
 
-;; ;;Functions specific to tree drawing 
+;;Functions specific to tree drawing
 
-;; (defun tree-to-shapes 
-;;   "Converts a full layed-out tree into a bunch of shapes to be sent to backend rendering code."
-;;   [{:keys [wrap-fn line-wid]} tree]
-;;   (mapcat (fn [{:keys [text x y width height line-left line-right line-ypos leaf parent-line-y]}]
-;;             (concat (when parent-line-y
-;;                       [{:type :rect :x (+ x (half width) (- (half line-wid))) :y parent-line-y :width line-wid :height (inc (- y parent-line-y))}])
-;;                     [{:type :rect :text (wrap-fn text width height) :x x :y y :width width :height height}]
-;;                     (when-not leaf
-;;                       [{:type :rect :x line-left :y line-ypos :width (- line-right line-left) :height line-wid}
-;;                        {:type :rect :x (+ x (half width) (- (half line-wid))) :y (dec (+ y height)) :width line-wid :height (+ (- line-ypos y height) 2)}])))
-;;           tree))
+(defun graph//tree-to-shapes (tree)
+  "Convert a full layed-out tree into a bunch of shapes to be sent to the rendering backend."
+  (apply 'append 
+         (mapcar
+          (lambda (node)
+            (let ((text (graph-treen-text node))
+                  (x (graph-treen-x node))
+                  (y (graph-treen-y node))
+                  (width (graph-treen-width node))
+                  (height (graph-treen-height node))
+                  (line-left (graph-treen-line-left node))
+                  (line-right (graph-treen-line-right node))
+                  (line-ypos (graph-treen-line-ypos node))
+                  (leaf (graph-treen-leaf node))
+                  (parent-line-y (graph-treen-parent-line-y node)))
+              (append
+               (when parent-line-y
+                 (list (make-graph-shape :type 'rect
+                                         :x (+ x (graph//half width) (- (graph//half graph-line-wid)))
+                                         :y parent-line-y
+                                         :width graph-line-wid
+                                         :height (+ 1 (- y parent-line-y)))))
+               (list (make-graph-shape :type 'rect :text (graph//wrap-fn text width height)
+                                       :x x :y y :width width :height height))
+               (unless leaf
+                 (list (make-graph-shape :type 'rect
+                                         :x line-left :y line-ypos
+                                         :width (- line-right line-left)
+                                         :height graph-line-wid)
+                       (make-graph-shape :type 'rect
+                                         :x (+ x (graph//half width) (- (graph//half graph-line-wid)))
+                                         :y (- (+ y height) 1)
+                                         :width graph-line-wid
+                                         :height (+ (- line-ypos y height) 2)))))))
+          tree)))
 
 ;; (defun make-rows 
 ;;   "Takes a tree and converts it into rows. This is needed since items in the same row and their widths will affect the spacing and layout of items."

@@ -235,6 +235,34 @@
              (make-graph-shape :x 3 :y 5 :height 6 :width 10 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top t)
              (make-graph-shape :x 8 :y 8 :height 6 :width 9 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top t)
              (make-graph-shape :x 15 :y 10 :height 6 :width 10 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top nil))
+            1)))
+  (should (equal
+           (mapconcat
+            'identity
+            '(""
+              ""
+              "  +----+---+"
+              "  |    +   |"
+              "  |        |"
+              "  |        |"
+              "  |        | +------+"
+              "  | asdf   |"
+              "  |        |"
+              "  |        |"
+              "  |        |"
+              "  +----+---+"
+              "       ||"
+              "       ||"
+              "       +"
+              ""
+              "")
+            "\n")
+           (graph//draw-shapes
+            (list
+             (make-graph-shape :x 7 :y 3 :width 1 :height 0 :type 'rect)
+             (make-graph-shape :x 2 :y 2 :width 10 :height 10 :type 'rect :text '(" " " " " " " " " asdf"))
+             (make-graph-shape :x 13 :y 6 :width 8 :height 1 :type 'rect)
+             (make-graph-shape :x 7 :y 11 :width 1 :height 4 :type 'rect))
             1))))
 
 (ert-deftest label-text ()
@@ -282,4 +310,18 @@
   (should (equal 4 (graph//width-fn "")))
   (should (equal (+ 4 graph-ascii-wrap-threshold) (graph//width-fn "1234567890 1231246")))
   (should (equal 8 (graph//width-fn "asdf"))))
+
+(ert-deftest tree-to-shapes ()
+  "Test converting to shapes."
+  (let ((tree (list
+               (make-graph-treen :text "asdf" :x 2 :y 6 :width 10 :height 10
+                                 :line-right 15 :line-left 10 :line-ypos 30
+                                 :leaf nil :parent-line-y 2))))
+    (should (equal (list
+                    (make-graph-shape :x 7 :y 2 :height 5 :width 1 :type 'rect)
+                    (make-graph-shape :x 2 :y 6 :height 10 :width 10 :type 'rect :text '(" " " " " " "  asdf"))
+                    (make-graph-shape :x 10 :y 30 :height 1 :width 5 :type 'rect)
+                    (make-graph-shape :x 7 :y 15 :height 16 :width 1 :type 'rect))
+                   (graph//tree-to-shapes tree)))))
+
 ;; graph-test.el ends here
