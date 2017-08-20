@@ -365,4 +365,21 @@
             (list (make-graph-treen :id 1 :text "asdfsadfa 13213125")
                   (make-graph-treen :id 2 :text "123"))))))
 
+(ert-deftest parent-child-tests ()
+  "Test parent child testing."
+  (let ((a (make-graph-treen :id 1 :parent 2))
+        (b (make-graph-treen :id 2)))
+    (should (graph//parent-p a b))
+    (should (not (graph//parent-p b a)))
+    (should (graph//child-p b a))
+    (should (not (graph//child-p a b)))))
+
+(ert-deftest space-row ()
+  "Test spacing a row."
+  ;;TODO)
+
+(ert-deftest space ()
+  "Test spacing rows."
+  ;;TODO)
+
 ;; graph-test.el ends here

@@ -477,12 +477,24 @@ This will be refined later by the calculations from `graph//space' and `graph//s
          newitem))
      row)))
 
+(defun graph//parent-p (child parent)
+  "Return t if child's parent is parent."
+  (let ((cp (graph-treen-parent child))
+        (pid (graph-treen-id parent)))
+    (and cp pid (equal cp pid))))
+
+(defun graph//child-p (parent child)
+  "Return t if child's parent is parent."
+  (graph//parent-p child parent))
+
 (defun graph//space-row (fun total-width target-row row remaining)
   "Calculate the x positions of tree nodes.
 
 All calculations start from the longest row in the tree.
 This function is then used to position nodes upwards or downwards from the longest row.
-Each row is positioned relative a 'target row', which is the neighboring row nearest to the longest row."
+Each row is positioned relative a 'target row', which is the neighboring row nearest to the longest row.
+
+FUN is either `graph//child-p' or `graph//parent-p'."
   (let ((curx 0))
     (mapcar
      (lambda (item)
@@ -544,6 +556,16 @@ Each row is positioned relative a 'target row', which is the neighboring row nea
 ;;              (compare-and-set! curx @curx (+ nu-x width node-padding))
 ;;              (assoc item :x nu-x)))
 ;;          row)))
+
+(defun graph//space (fun total-width target-row rest)
+  "Use space-row for a list of rows."
+  (when rest
+    (let ((curx 0)
+          (row (caar rest))
+          (remaining (cadar rest))
+          (more (cdr rest))
+          (nu-row (graph//space-row fun total-width target-row row remaining)))
+      (cons nu-row (graph//space fun total-width nu-row more)))))
 
 ;; (defun space
 ;;   "Acessory function to space-row that allows a list of rows to by spaced"
