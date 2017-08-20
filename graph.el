@@ -477,6 +477,44 @@ This will be refined later by the calculations from `graph//space' and `graph//s
          newitem))
      row)))
 
+(defun graph//space-row (fun total-width target-row row remaining)
+  "Calculate the x positions of tree nodes.
+
+All calculations start from the longest row in the tree.
+This function is then used to position nodes upwards or downwards from the longest row.
+Each row is positioned relative a 'target row', which is the neighboring row nearest to the longest row."
+  (let ((curx 0))
+    (mapcar
+     (lambda (item)
+       (let* ((newitem (copy-graph-treen item))
+              (width (graph-treen-width item))
+              (id (graph-treen-id item))
+              (children (seq-filter (lambda (row) (funcall fun row item)) target-row))
+              (child-pos (mapcar (lambda (item)
+                                   (+ (graph-treen-x item) (graph//half (graph-treen-width item))))))
+              (nu-remaining (- remaining width graph-node-padding))
+              (nu-x (if child-pos
+                        (let* ((child (car children))
+                               (siblings (seq-filter (lambda (item) (funcall fun child item)) row))
+                               (left-scoot (if (and (< 1 (length siblings)) (= (graph-treen-id (car siblings)) id))
+                                               (graph//half (- (apply '+ (mapcar (lambda (item)
+                                                                                   (+ (graph-treen-width item) graph-node-padding))
+                                                                                 siblings))
+                                                               graph-node-padding (graph-treen-width child)))
+                                             0))
+                               (k (- (graph//half (+ (car child-pos) (car (last child-pos)))) (graph//half width) left-scoot))
+                               (no-right (+ k width graph-node-padding)))
+                          (if (< k curx)
+                              curx
+                            (if (< (- total-width nu-right) nu-remaining)
+                                (- total-width nu-remaining graph-node-padding width)
+                              k)))
+                      curx)))
+         (setq remaining nu-remaining
+               curx (+ nu-x width node-padding))
+         (setf (graph-treen-x newitem) nu-x)
+         newitem))
+     row)))
 ;; (defun space-row
 ;;   "This function calculates the x positions of tree nodes. All calculations start from the longest row in the tree. This function is then used to position nodes upwards or downwards from the longest row. Each row is positioned relative a 'target row', which is the neighboring row nearest to the longest row."
 ;;   [{:keys [node-padding]} fun total-width target-row row remaining]
