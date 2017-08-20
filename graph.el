@@ -5,6 +5,8 @@
 ;; port of https://github.com/drcode/vijual to lisp
 
 ;;; Code:
+(require 's)
+
 (eval-when-compile (require 'cl-lib))
 (eval-when-compile (require 'cl))
 
@@ -229,12 +231,13 @@ Shape has the given TYPE, DIR and WIDTH."
               (setq counter (+ counter 1))
               (cons counter elem)) lst)))
 
-;; (defun label-text 
-;;   "Returns a text string representing the label for the item. It handles the special case of keywords, so that :oak-tree ==> 'oak tree'"
-;;   [text]
-;;      (if (keyword? text)
-;;        (apply str (replace {\- \space} (name text)))
-;;        (str text)))
+(defun graph//label-text (text)
+  "Return a text string representing the label for the item.
+
+It handles the special case of symbols, so that 'oak-tree ==> 'oak tree'."
+  (if (symbolp text)
+      (s-replace "-" " " (symbol-name text))
+    text))
 
 (defun graph//center (lines width height)
   "Center the given lines."
@@ -245,15 +248,6 @@ Shape has the given TYPE, DIR and WIDTH."
     (if (< n height)
         (append (cl-loop repeat (graph//half (- height n)) collect "") lines)
       lines)))
-
-;; (defun center [lines width height]
-;;   (vec (let [n (count lines)
-;;              lines (map (fn [s]
-;;                           (apply str (concat (repeat (half (- width (count s))) \space) s)))
-;;                         lines)]
-;;          (if (< n height)
-;;            (concat (repeat (half (- height n)) [""]) lines)
-;;            lines))))
 
 (defun graph//positions (pred coll)
   "Returns a sequence containing the positions at which pred
@@ -280,32 +274,48 @@ Shape has the given TYPE, DIR and WIDTH."
                   text (substring text mw))))))
     lines))
 
-;; (defun horizontal [dir]
-;;   (#{:right :left} dir))
+(defun graph//horizontal (dir)
+  "Return the given DIR if it's horizontal."
+  (car (memq dir '(right left))))
 
-;; (defun vertical [dir]
-;;   (#{:up :down} dir))
+(defun graph//vertical (dir)
+  "Return the given DIR if it's horizontal."
+  (car (memq dir '(up down))))
 
-;; ;;Scan Functions- A "scan" is a run-length-encoded list of heights that are used to optimally calculate packing of tree and graphs. An example scan would be [[0 5] [7 10]] which would mean "The height is 5 for an x between 0 (inclusive) and 7 (exclusive). The height is 10 for any x greater than or equal to 7."
+;;Scan Functions
+;; A "scan" is a run-length-encoded list of heights that s used to calculate packing of tree and graphs.
+;; An example scan would be [[0 5] [7 10]] which would mean
+;; "The height is 5 for an x between 0 (inclusive) and 7 (exclusive).
+;; The height is 10 for any x greater than or equal to 7."
+(defun graph//-scan-add (scan cury xend)
+  "Add a scan.
 
-;; (defun scan-add [scan x y wid]
-;;   "Adds a new height bar at x with a width of wid and a height of y."
-;;   (let [xend (+ x wid)]
-;;     (letfn [[advance [scan cury]
-;;              (if (seq scan)
-;;                (let [[[ax ay :as a] & d] scan]
-;;                  (if (> x ax)
-;;                    (cons a (advance d ay))
-;;                    (cons [x y] (add scan cury))))
-;;                (list [x y] [xend cury]))]
-;;             [add [scan cury]
-;;              (if (seq scan)
-;;                (let [[[ax ay] & d] scan]
-;;                  (if (<= ax xend)
-;;                    (add d ay)
-;;                    (cons [xend cury] scan)))
-;;                (list [xend cury]))]]
-;;       (advance scan nil))))
+Scan is a list of (x y) pairs."
+  (if scan
+      (let ((ax (caar scan))
+            (ay (cadar scan))
+            (d (cdr scan)))
+        (if (<= ax xend)
+            (graph//-scan-add d ay xend)
+          (cons (list xend cury) scan)))
+    (list (list xend cury))))
+
+(defun graph//-scan-advance (scan cury x y xend)
+  "Advance scan."
+  (if scan
+      (let ((a (car scan))
+            (ax (caar scan))
+            (ay (cadar scan))
+            (d (cdr scan)))
+        (if (> x ax)
+            (cons a (graph//-scan-advance d ay x y xend))
+          (cons (list x y) (graph//-scan-add scan cury xend))))
+    (list (list x y) (list xend cury))))
+
+(defun graph//scan-add (scan x y wid)
+  "Add as new height bar at x with a width of wid and a height of y."
+  (let ((xend (+ x wid)))
+    (graph//-scan-advance scan nil x y xend)))
 
 ;; (defun scan-lowest-y
 ;;   "Finds the lowest y that is available at x with width y that would prevent it from intersecting with the scan."

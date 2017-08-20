@@ -202,6 +202,66 @@
   (should (equal '(" foo" "spam" " bar") (graph//center '("foo" "spam" "bar") 5 3)))
   (should (equal '("foo" "bar") (graph//center '("foo" "bar") 3 3)))
   (should (equal '("" "" "foo" "bar") (graph//center '("foo" "bar") 3 6)))
-  (should (equal '("" "   foo" "  spam") (graph//center '("foo" "spam") 9 5)))
-  )
+  (should (equal '("" "   foo" "  spam") (graph//center '("foo" "spam") 9 5))))
+
+(ert-deftest draw-shapes ()
+  "Test drawing shapes"
+  (should (equal
+           (mapconcat
+            'identity
+            '("   |        |"
+              "   |        |"
+              "   +--------+"
+              "   +--------+"
+              "   | 1231   |"
+              "   +--------+"
+              "   | asdfas |"
+              "   |   df   |"
+              "   |        |---+"
+              "   |        |fas|"
+              "   +--------+f  |-------+"
+              "        |       |asdfas |"
+              "        |       |  df   |"
+              "        +-------+       |"
+              "               |        |"
+              "               +--------+"
+              ""
+              "")
+            "\n")
+           (graph//draw-shapes
+            (list
+             (make-graph-shape :x 3 :y -3 :height 6 :width 10 :text (graph//wrap-fn "123123" 8 6) :on-top nil)
+             (make-graph-shape :x 3 :y 3 :height 6 :width 10 :text (graph//wrap-fn "123123" 8 6) :on-top nil)
+             (make-graph-shape :x 3 :y 5 :height 6 :width 10 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top t)
+             (make-graph-shape :x 8 :y 8 :height 6 :width 9 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top t)
+             (make-graph-shape :x 15 :y 10 :height 6 :width 10 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top nil))
+            1))))
+
+(ert-deftest label-text ()
+  "Test the special symbol case."
+  (should (equal "asdf" (graph//label-text "asdf")))
+  (should (equal "oak tree" (graph//label-text 'oak-tree)))
+  (should (equal "oaktree" (graph//label-text 'oaktree))))
+
+(ert-deftest horizontal ()
+  "Test horizontal function"
+  (should (eq 'left (graph//horizontal 'left)))
+  (should (eq 'right (graph//horizontal 'right)))
+  (should (eq nil (graph//horizontal 'up)))
+  (should (eq nil (graph//horizontal 'down)))
+  (should (eq nil (graph//horizontal nil))))
+
+(ert-deftest vertical ()
+  "Test vertical function"
+  (should (eq 'up (graph//vertical 'up)))
+  (should (eq 'down (graph//vertical 'down)))
+  (should (eq nil (graph//vertical 'left)))
+  (should (eq nil (graph//vertical 'right)))
+  (should (eq nil (graph//vertical nil))))
+
+(ert-deftest scan-add ()
+  "Test adding a scan."
+  (should (equal '((0 5) (6 12) (9 10))
+                 (graph//scan-add
+                  '((0 5) (7 10)) 6 12 3))))
 ;; graph-test.el ends here
