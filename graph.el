@@ -459,17 +459,23 @@ The height depends on how the text is broken into lines."
              row))
    rows))
 
+(defun graph//row-pos (row)
+  "Calculate preliminary x positions for nodes in a tree.
 
-;; (defun row-pos 
-;;   "Calculates preliminary x positions for nodes in a tree. This will be refined later by the calculations from the 'space' functions."
-;;   [{:keys [width-fn node-padding row-padding height-fn]} row y]
-;;   (let [x (atom 0)]
-;;     (map (fn [{:keys [text] :as item}]
-;;            (let [w (width-fn text)
-;;                  oldx @x]
-;;              (swap! x #(+ % w node-padding))
-;;              (merge item {:x oldx :width w :height (height-fn text)})))
-;;          row)))
+This will be refined later by the calculations from `graph//space' and `graph//space-row'."
+  (let ((x 0))
+    (mapcar
+     (lambda (item)
+       (let* ((text (graph-treen-text item))
+              (w (graph//width-fn text))
+              (newitem (copy-graph-treen item))
+              (oldx x))
+         (setq x (+ oldx w graph-node-padding))
+         (setf (graph-treen-x newitem) oldx
+               (graph-treen-width newitem) w
+               (graph-treen-height newitem) (graph//height-fn text))
+         newitem))
+     row)))
 
 ;; (defun space-row
 ;;   "This function calculates the x positions of tree nodes. All calculations start from the longest row in the tree. This function is then used to position nodes upwards or downwards from the longest row. Each row is positioned relative a 'target row', which is the neighboring row nearest to the longest row."

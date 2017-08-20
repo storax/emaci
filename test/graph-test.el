@@ -356,4 +356,13 @@
                    (list (make-graph-treen :id 2 :text "123")
                          (make-graph-treen :id 6 :text "1234567890 asdfsadf 1231231231")))))))
 
+(ert-deftest row-pos ()
+  "Test calculating x of a tree's row."
+  (should (equal
+           (list (make-graph-treen :id 1 :x 0 :width 14 :height 4 :text "asdfsadfa 13213125")
+                 (make-graph-treen :id 2 :x 15 :width 7 :height 3 :text "123"))
+           (graph//row-pos
+            (list (make-graph-treen :id 1 :text "asdfsadfa 13213125")
+                  (make-graph-treen :id 2 :text "123"))))))
+
 ;; graph-test.el ends here
