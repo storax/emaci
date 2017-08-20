@@ -117,7 +117,7 @@
 (ert-deftest draw-shapes-frame ()
   "Test the frame around the main loop in `grap//draw-shapes'."
   (cl-letf (((symbol-function 'graph//draw-shapes-pos)
-             (lambda (ypos xcur shapes node-padding)
+             (lambda (ypos xcur shapes)
                (list (cons 'xcur (+ xcur 1))
                      (cons 'drawn (number-to-string xcur))
                      (cons 'shapes (cdr shapes))))))
@@ -125,7 +125,7 @@
                    (make-graph-shape :x 2 :y 3 :height 4 :width 4)
                    (make-graph-shape :x 4 :y 1 :height 4 :width 3)))
           (expected "\n0\n0\n01\n01\n0\n0\n\n"))
-      (should (equal expected (graph//draw-shapes shapes 1))))))
+      (should (equal expected (graph//draw-shapes shapes))))))
 
 (ert-deftest new-xcur ()
   "Test moving the xcursor"
@@ -234,8 +234,7 @@
              (make-graph-shape :x 3 :y 3 :height 6 :width 10 :text (graph//wrap-fn "123123" 8 6) :on-top nil)
              (make-graph-shape :x 3 :y 5 :height 6 :width 10 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top t)
              (make-graph-shape :x 8 :y 8 :height 6 :width 9 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top t)
-             (make-graph-shape :x 15 :y 10 :height 6 :width 10 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top nil))
-            1)))
+             (make-graph-shape :x 15 :y 10 :height 6 :width 10 :text (graph//wrap-fn "asdfasdf" 10 6) :on-top nil)))))
   (should (equal
            (mapconcat
             'identity
@@ -262,8 +261,7 @@
              (make-graph-shape :x 7 :y 3 :width 1 :height 0 :type 'rect)
              (make-graph-shape :x 2 :y 2 :width 10 :height 10 :type 'rect :text '(" " " " " " " " " asdf"))
              (make-graph-shape :x 13 :y 6 :width 8 :height 1 :type 'rect)
-             (make-graph-shape :x 7 :y 11 :width 1 :height 4 :type 'rect))
-            1))))
+             (make-graph-shape :x 7 :y 11 :width 1 :height 4 :type 'rect))))))
 
 (ert-deftest label-text ()
   "Test the special symbol case."

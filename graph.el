@@ -94,7 +94,7 @@ If they are the same width the higher shape takes precedence."
                 (and (= ax bx) (< aw bw))
                 (and (= ax bx) (= aw bw) (> ah bh)))))))
 
-(defun graph//draw-shapes (shapes node-padding)
+(defun graph//draw-shapes (shapes)
   "Renders a list of shapes into ASCII.
 
 The two current shape types are 'rect, which represent nodes and
@@ -106,7 +106,7 @@ The arrow heads are represented as type 'arrow."
              (sorted-shapes (graph//x-sort-shapes (graph//filter-shapes-at-ypos ypos shapes)))
              (rest-shapes sorted-shapes))
         (while rest-shapes
-          (let ((result (graph//draw-shapes-pos ypos xcur rest-shapes node-padding)))
+          (let ((result (graph//draw-shapes-pos ypos xcur rest-shapes)))
             (setq xcur (cdr (assoc 'xcur result))
                   rest-shapes (cdr (assoc 'shapes result))
                   drawn (concat drawn (cdr (assoc 'drawn result)))))))
@@ -199,7 +199,7 @@ Shape has the given TYPE, DIR and WIDTH."
           (return (list (< (+ x2 width2) (+ x width)) (substring s 0 (min (length s) (- x2 x)))))))))
    (list nil s)))
 
-(defun graph//draw-shapes-pos (ypos xcur shapes node-padding)
+(defun graph//draw-shapes-pos (ypos xcur shapes)
   "Return the text for the given position and shape and the next x position and shapes to draw."
   (let* (drawn
          (shape (car shapes))
