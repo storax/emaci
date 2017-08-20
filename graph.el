@@ -14,7 +14,7 @@
   x y width height type text dir on-top)
 
 (cl-defstruct graph-treen
-  x y width height text line-right line-left line-ypos leaf parent-line-y)
+  id x y width height text line-right line-left line-ypos leaf parent parent-line-y children)
 
 (defun graph//half (x)
   "Devide X by two"
@@ -387,7 +387,7 @@ that would prevent it from intersecting with the scan."
 
 (defun graph//tree-to-shapes (tree)
   "Convert a full layed-out tree into a bunch of shapes to be sent to the rendering backend."
-  (apply 'append 
+  (apply 'append
          (mapcar
           (lambda (node)
             (let ((text (graph-treen-text node))
@@ -421,16 +421,38 @@ that would prevent it from intersecting with the scan."
                                          :height (+ (- line-ypos y height) 2)))))))
           tree)))
 
+(defun graph//make-rows (tree)
+  "Takes a tree and converts it into rows.
+
+This is needed since items in the same row and their widths will affect the spacing and layout of items."
+  (when tree
+    (cons (mapcar (lambda (node)
+                    (let ((text (graph-treen-text node))
+                          (id (graph-treen-id node))
+                          (parent (graph-treen-parent node))
+                          (children (graph-treen-children node)))
+                      (make-graph-treen :text text :id id :parent parent :leaf (seq-empty-p children))))
+                  tree)
+          (graph//make-rows
+           (seq-mapcat (lambda (node)
+                         (let ((id (graph-treen-id node))
+                               (children (graph-treen-children node)))
+                           (mapcar (lambda (child)
+                                     (let ((newc (copy-graph-treen child)))
+                                       (setf (graph-treen-parent newc) id)
+                                       newc))
+                                   children)))
+                       tree)))))
 ;; (defun make-rows 
 ;;   "Takes a tree and converts it into rows. This is needed since items in the same row and their widths will affect the spacing and layout of items."
 ;;   [tree]
-;;   (when (seq tree)
-;;     (cons (map (fn [{:keys [text id parent children]}]
-;;                  {:text text :id id :parent parent :leaf (empty? children)})
-;;                tree)
-;;           (make-rows (mapcat (fn [{:keys [id children]}]
-;;                                (map #(assoc % :parent id) children))
-;;                              tree)))))
+;; (when (seq tree)
+;;   (cons (map (fn [{:keys [text id parent children]}]
+;;                {:text text :id id :parent parent :leaf (empty? children)})
+;;              tree)
+;;         (make-rows (mapcat (fn [{:keys [id children]}]
+;;                              (map #(assoc % :parent id) children))
+;;                            tree)))))
 
 ;; (defun wrap-text
 ;;   "calculates the wrapped text of each tree item and the resulting height based on how the text was broken into lines"

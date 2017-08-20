@@ -322,4 +322,25 @@
                     (make-graph-shape :x 7 :y 15 :height 16 :width 1 :type 'rect))
                    (graph//tree-to-shapes tree)))))
 
+(ert-deftest make-rows ()
+  "Test converting a tree into rows."
+  (should (equal (list
+                  (list (make-graph-treen :id 1 :text "asdf" :leaf nil)
+                        (make-graph-treen :id 4 :text "4" :leaf nil))
+                  (list (make-graph-treen :id 2 :text "123" :leaf t :parent 1)
+                        (make-graph-treen :id 3 :text "3" :leaf t :parent 1)
+                        (make-graph-treen :id 5 :text "5" :leaf t :parent 4)
+                        (make-graph-treen :id 6 :text "6" :leaf t :parent 4)))
+                 (graph//make-rows
+                  (list
+                   (make-graph-treen :id 1 :text "asdf"
+                                     :children (list
+                                                (make-graph-treen :id 2 :text "123")
+                                                (make-graph-treen :id 3 :text "3")))
+                   (make-graph-treen :id 4 :text "4"
+                                          :children (list
+                                                     (make-graph-treen :id 5 :text "5")
+                                                     (make-graph-treen :id 6 :text "6"))))))))
+
+
 ;; graph-test.el ends here
