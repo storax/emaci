@@ -654,6 +654,25 @@ FUN is either `graph//child-p' or `graph//parent-p'."
 ;;                (lazy-seq (cons lines-placed (f scan more)))))]]
 ;;     (f [[0 0]] rows)))
 
+(defun graph//-idtree (n tree)
+  (let ((labeled
+         (mapcar (lambda (nodes)
+                   (let* ((nam (car nodes))
+                          (chi (cdr nodes))
+                          (nchildren (graph//-idtree (+ 1 n) chi))
+                          (newn (car nchildren))
+                          (children (cdr nchildren))
+                          (node (make-graph-treen :text (graph//label-text nam)
+                                                  :id n :children children)))
+                     (setq n newn)
+                     node))
+                 tree)))
+    (cons n labeled)))
+
+(defun graph//idtree (tree)
+  "Assigns an id number to each node in a tree so that it can be flattened later on."
+  (cdr (graph//-idtree 0 tree)))
+
 ;; (defun idtree 
 ;;   "Assigns an id# to each node in a tree so that it can be flattened later on."
 ;;   [tree]
