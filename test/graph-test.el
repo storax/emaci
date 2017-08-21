@@ -383,41 +383,41 @@
   ;;TODO)
   )
 
+(ert-deftest horz-lines ()
+  "Test calculating horizontal line that leads to children."
+  ;;TODO)
+
+(ert-deftest tree-row-wid ()
+  "Test caluclating the row width."
+  (should (equal 25
+                 (graph//tree-row-wid
+                  (list (make-graph-treen :text "adfaasdfas aldsfjsladfjlsjdf")
+                        (make-graph-treen :text "assdf"))))))
+
+(defun mkn (id text &optional children)
+  (make-graph-treen :id id :text text :children children))
+
 (ert-deftest idtree ()
   "Test the initial conversion into nodes."
 ;(draw-tree [[:north-america [:usa [:miami] [:seattle] [:idaho [:boise]]]] [:europe [:germany] [:france [:paris] [:lyon] [:cannes]]]])
-  (cl-letf ((mid (lambda (id text &optional children)
-                   (make-graph-treen :id id :text text :children children))))
-    (should (equal (list
-                    (funcall mid 0 "north america"
-                         (list (funcall mid 1 "usa"
-                                    (list (funcall mid 2 "miami")
-                                          (funcall mid 3 "seattle")
-                                          (funcall mid 4 "idaho"
-                                               (list (funcall mid 5 "boise")))))))
-                    (funcall mid 6 "europe"
-                         (list (funcall mid 7 "germany")
-                               (funcall mid 8 "france"
-                                    (list (funcall mid 9 "paris")
-                                          (funcall mid 10 "lyon")
-                                          (funcall mid 11 "cannes"))))))
-                   (graph//idtree
-                    '((north-america (usa
-                                      (miami) (seattle) (idaho
-                                                         (boise))))
-                      (europe (germany) (france
-                                         (paris) (lyon) (cannes)))))))))
+  (should (equal (list
+                  (mkn 0 "north america"
+                           (list (mkn 1 "usa"
+                                          (list (mkn 2 "miami")
+                                                (mkn 3 "seattle")
+                                                (mkn 4 "idaho"
+                                                         (list (mkn 5 "boise")))))))
+                  (mkn 6 "europe"
+                           (list (mkn 7 "germany")
+                                 (mkn 8 "france"
+                                          (list (mkn 9 "paris")
+                                                (mkn 10 "lyon")
+                                                (mkn 11 "cannes"))))))
+                 (graph//idtree
+                  '((north-america (usa
+                                    (miami) (seattle) (idaho
+                                                       (boise))))
+                    (europe (germany) (france
+                                       (paris) (lyon) (cannes))))))))
 
-;; ([cl-struct-graph-treen 0 "north america"
-;;                         ([cl-struct-graph-treen 1 "usa"
-;;                                                 ([cl-struct-graph-treen 2 "miami"]
-;;                                                  [cl-struct-graph-treen 3 "seattle"]
-;;                                                  [cl-struct-graph-treen 4 "idaho"
-;;                                                                         ([cl-struct-graph-treen 5 "boise"])])])]
-;;  [cl-struct-graph-treen 6 "europe"
-;;                         ([cl-struct-graph-treen 7 "germany"]
-;;                          [cl-struct-graph-treen 8 "france"
-;;                                                 ([cl-struct-graph-treen 9 "paris"]
-;;                                                  [cl-struct-graph-treen 10 "lyon"]
-;;                                                  [cl-struct-graph-treen 11 "cannes"])]])])
 ;; graph-test.el ends here

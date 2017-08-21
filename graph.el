@@ -527,35 +527,6 @@ FUN is either `graph//child-p' or `graph//parent-p'."
          (setf (graph-treen-x newitem) nu-x)
          newitem))
      row)))
-;; (defun space-row
-;;   "This function calculates the x positions of tree nodes. All calculations start from the longest row in the tree. This function is then used to position nodes upwards or downwards from the longest row. Each row is positioned relative a 'target row', which is the neighboring row nearest to the longest row."
-;;   [{:keys [node-padding]} fun total-width target-row row remaining]
-;;   (let [curx (atom 0)
-;;         remaining (atom remaining)]
-;;     (map (fn [{:keys [width id] :as item}]
-;;            (let [children (filter #(fun % item) target-row)
-;;                  child-pos (map (fn [{:keys [x width] :as item}]
-;;                                   (+ x (half width)))
-;;                                 children)
-;;                  nu-remaining (- @remaining width node-padding)
-;;                  nu-x (if (seq child-pos)
-;;                         (let [child (first children)
-;;                               siblings (filter #(fun child %) row)
-;;                               left-scoot (if (and (< 1 (count siblings)) (= ((first siblings) :id) id))
-;;                                            (half (- (apply + (map #(+ (% :width) node-padding) siblings)) node-padding (child :width)))
-;;                                            0)
-;;                               k (- (half (+ (first child-pos) (last child-pos))) (half width) left-scoot)
-;;                               nu-right (+ k width node-padding)]
-;;                           (if (< k @curx)
-;;                             @curx
-;;                             (if (< (- total-width nu-right) nu-remaining)
-;;                               (- total-width nu-remaining node-padding width)
-;;                               k)))
-;;                         @curx)]
-;;              (compare-and-set! remaining @remaining nu-remaining)
-;;              (compare-and-set! curx @curx (+ nu-x width node-padding))
-;;              (assoc item :x nu-x)))
-;;          row)))
 
 (defun graph//space (fun total-width target-row rest)
   "Use space-row for a list of rows."
@@ -567,15 +538,25 @@ FUN is either `graph//child-p' or `graph//parent-p'."
           (nu-row (graph//space-row fun total-width target-row row remaining)))
       (cons nu-row (graph//space fun total-width nu-row more)))))
 
-;; (defun space
-;;   "Acessory function to space-row that allows a list of rows to by spaced"
-;;   [{:keys [node-padding] :as dim} fun total-width target-row rest]
-;;   (when (seq rest)
-;;     (let [curx (atom 0)
-;;           [[row remaining] & more] rest
-;;           nu-row (space-row dim fun total-width target-row row remaining)]
-;;       (cons nu-row (space dim fun total-width nu-row more)))))
 
+(defun graph//horz-lines (rows)
+  "Calculate the left and right extents of the horizontal line below a node that leads to its children."
+  (mapcar* (lambda (cur next)
+             (mapcar (lambda (cur)
+                       (let* ((id (graph-treen-id cur))
+                              (bounds (lambda (node)
+                                        (+ (graph-treen-x node) (graph//half (graph-treen-width node)))))
+                              (ranges (cons (funcall 'bounds cur)
+                                            (cl-loop chi in next when
+                                                     (= id (graph-treen-parent chi))
+                                                     collect (funcall 'bounds chi))))
+                              (newcur (copy-graph-treen cur)))
+                         (setf (graph-treen-line-left newcur) (- (apply min ranges) (graph//half graph-line-wid))
+                               (graph-treen-line-right newcur) (+ (apply max ranges) (graph//half graph-line-wid)))
+                         newcur))
+                     cur))
+           rows
+           (append (rest rows))))
 ;; (defun horz-lines [{:keys [line-wid]} rows]
 ;;   "This function calculates the left and right extents of the horizontal line below a node that leads to its children."
 ;;   (map (fn [cur next]
@@ -673,25 +654,13 @@ FUN is either `graph//child-p' or `graph//parent-p'."
   "Assigns an id number to each node in a tree so that it can be flattened later on."
   (cdr (graph//-idtree 0 tree)))
 
-;; (defun idtree 
-;;   "Assigns an id# to each node in a tree so that it can be flattened later on."
-;;   [tree]
-;;   (let [n (atom 0)]
-;;     (letfn [[f [tree]
-;;              (map (fn [[nam & chi]]
-;;                     (swap! n inc)
-;;                     {:text (label-text nam) :id (dec @n) :children (f chi)})
-;;                   tree)]]
-;;       (f tree))))
-
-;; (defun tree-row-wid 
-;;   "Figures out the width of a row in a tree."
-;;   [{:keys [width-fn node-padding]} row]
-;;   (+ (reduce + 
-;;              (map (fn [{text :text}]
-;;                     (width-fn text))
-;;                   row))
-;;      (* (dec (count row)) node-padding)))
+(defun graph//tree-row-wid (row)
+  "Figrues out the width of a row in a tree"
+  (+ (reduce '+
+             (mapcar (lambda (node)
+                       (graph//width-fn (graph-treen-text node)))
+                     row))
+     (* (- (length row) 1)) graph-node-padding))
 
 ;; (defun layout-tree [{:keys [row-padding height width width-fn] :as dim} tree]
 ;;   "This takes a tree and elegantly arranges it."
