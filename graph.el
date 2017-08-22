@@ -538,40 +538,53 @@ FUN is either `graph//child-p' or `graph//parent-p'."
           (nu-row (graph//space-row fun total-width target-row row remaining)))
       (cons nu-row (graph//space fun total-width nu-row more)))))
 
+(defun graph//bounds (node)
+  "Calculate the boundary of the given node."
+  (+ (graph-treen-x node) (graph//half (graph-treen-width node))))
 
 (defun graph//horz-lines (rows)
   "Calculate the left and right extents of the horizontal line below a node that leads to its children."
   (mapcar* (lambda (cur next)
              (mapcar (lambda (cur)
                        (let* ((id (graph-treen-id cur))
-                              (bounds (lambda (node)
-                                        (+ (graph-treen-x node) (graph//half (graph-treen-width node)))))
-                              (ranges (cons (funcall 'bounds cur)
-                                            (cl-loop chi in next when
+                              (ranges (cons (graph//bounds cur)
+                                            (cl-loop for chi in next when
                                                      (= id (graph-treen-parent chi))
-                                                     collect (funcall 'bounds chi))))
+                                                     collect (graph//bounds chi))))
                               (newcur (copy-graph-treen cur)))
-                         (setf (graph-treen-line-left newcur) (- (apply min ranges) (graph//half graph-line-wid))
-                               (graph-treen-line-right newcur) (+ (apply max ranges) (graph//half graph-line-wid)))
+                         (setf (graph-treen-line-left newcur) (- (apply 'min ranges) (graph//half graph-line-wid))
+                               (graph-treen-line-right newcur) (+ (apply 'max ranges) (graph//half graph-line-wid)))
                          newcur))
                      cur))
            rows
-           (append (rest rows))))
-;; (defun horz-lines [{:keys [line-wid]} rows]
-;;   "This function calculates the left and right extents of the horizontal line below a node that leads to its children."
-;;   (map (fn [cur next]
-;;          (map (fn [{:keys [id] :as cur}]
-;;                 (let [bounds (fn [{:keys [x width]}]
-;;                                (+ x (half width)))
-;;                       ranges (cons (bounds cur)
-;;                                    (for [{:keys [parent] :as chi} next :when (= id parent)]
-;;                                      (bounds chi)))]
-;;                   (merge cur {:line-left (- (apply min ranges) (half line-wid))
-;;                               :line-right (+ (apply max ranges) (half line-wid))})))
-;;               cur))
-;;        rows
-;;        (concat (rest rows) [[]])))
+           (append (rest rows) (list (list)))))
 
+(defun graph//level-lines (lined)
+  "Stagger horizontal lines vertically in an optimal fashion.
+
+Nodes should be able to connect to their children in a tree with the least amount of inbetween space."
+  (mapcar
+   (lambda (row)
+     (let ((group-right 0)
+           (line-y 0))
+       (mapcar
+        (lambda (item)
+          (let ((leaf (graph-treen-leaf item))
+                (line-left (graph-treen-line-left item))
+                (line-right (graph-treen-line-right item))
+                (x (graph-treen-x item))
+                (width (graph-treen-width item))
+                (newitem (copy-graph-treen item)))
+            (cond (leaf item)
+                  ((and group-right (> (+ group-right graph-line-wid) line-left))
+                   (setq line-y (if (<= (+ x (graph//half width)) (+ group-right graph-line-padding))
+                                    (- line-y 1)
+                                  (+ line-y 1))))
+                  (t (setq line-y 0)))
+            (setq group-right (max line-right group-right))
+            (setf (graph-line-y newitem line-y))))
+        row)))
+   lined))
 ;; (defun level-lines 
 ;;   "This function is used to stagger horizontal lines vertically in an optimal fashion, so that nodes can connect to their children in a tree with the least amount of inbetween space."
 ;;   [{:keys [line-wid line-padding]} lined]
@@ -662,6 +675,30 @@ FUN is either `graph//child-p' or `graph//parent-p'."
                      row))
      (* (- (length row) 1)) graph-node-padding))
 
+(defun layout-tree (tree)
+  "This takes a tree and elegantly arranges it."
+  (let* ((rows (graph//make-rows tree))
+         (wrapped (wrap-text rows))
+         (widths (mapcar (apply-partially 'graph//tree-row-wid) wrapped))
+         (total-width (apply 'max widths))
+         (top 0)
+         (left 0)
+         (divider (car (graph//positions (apply-partially '= total-width) widths)))
+         (pos (mapcar* 'list
+                       (mapcar* (apply-partially 'graph//row-pos)
+                                      wrapped (number-sequence 0 (length wrapped)))
+                       widths))
+         (zipped-top (reverse (cl-subseq pos 0 divider)))
+         (target-row (car (nth divider pos)))
+         (zipped-bottom (cl-subseq pos (+ 1 divider)))
+         (spaced-top (space 'graph//parent-p total-width target-row zipped-top))
+         (spaced-bottom (space 'graph//child-p total-width target-row zipped-bottom))
+         (spaced-pos (append (reverse spaced-top) (list target-row) spaced-bottom))
+         (lined (graph//horz-lines spaced-pos))
+         (leveled-lines (graph//level-lines lined))
+         (packed (graph//packtree leveled-lines))
+         (lev-chi (graph//lev-children packed)))
+    (apply 'append lev-chi)))
 ;; (defun layout-tree [{:keys [row-padding height width width-fn] :as dim} tree]
 ;;   "This takes a tree and elegantly arranges it."
 ;;   (let [rows (make-rows tree)

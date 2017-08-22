@@ -383,9 +383,31 @@
   ;;TODO)
   )
 
+(ert-deftest bounds ()
+  "Test getting bounds of a node."
+  (should (equal 15 (graph//bounds (make-graph-treen :x 12 :width 6)))))
+
 (ert-deftest horz-lines ()
   "Test calculating horizontal line that leads to children."
-  ;;TODO)
+  (should (equal (list
+                  (list (make-graph-treen :id 1 :text "asdf" :x 3 :width 6 :line-left 2 :line-right 7)
+                        (make-graph-treen :id 4 :text "4" :x 6 :width 3 :line-left 7 :line-right 16))
+                  (list (make-graph-treen :id 2 :text "123" :leaf t :parent 1 :x 0 :width 5
+                                          :line-left 2 :line-right 2)
+                        (make-graph-treen :id 3 :text "3" :leaf t :parent 1 :x 6 :width 3
+                                          :line-left 7 :line-right 7)
+                        (make-graph-treen :id 5 :text "5" :leaf t :parent 4 :x 11 :width 3
+                                          :line-left 12 :line-right 12)
+                        (make-graph-treen :id 6 :text "6" :leaf t :parent 4 :x 15 :width 3
+                                          :line-left 16 :line-right 16)))
+                 (graph//horz-lines
+                  (list
+                   (list (make-graph-treen :id 1 :text "asdf" :x 3 :width 6)
+                         (make-graph-treen :id 4 :text "4" :x 6 :width 3))
+                   (list (make-graph-treen :id 2 :text "123" :leaf t :parent 1 :x 0 :width 5)
+                         (make-graph-treen :id 3 :text "3" :leaf t :parent 1 :x 6 :width 3)
+                         (make-graph-treen :id 5 :text "5" :leaf t :parent 4 :x 11 :width 3)
+                         (make-graph-treen :id 6 :text "6" :leaf t :parent 4 :x 15 :width 3)))))))
 
 (ert-deftest tree-row-wid ()
   "Test caluclating the row width."
