@@ -32,7 +32,7 @@
 
 (ert-deftest half ()
   "Test dividing things by two."
-  (should (equal (/ 3 2) (graph//half 3))))
+  (should (equal (/ 3 2.0) (graph//half 3))))
 
 (ert-deftest fill ()
   "Test fill."
@@ -250,8 +250,8 @@
               "  |        |"
               "  |        |"
               "  +----+---+"
-              "       ||"
-              "       ||"
+              "       |"
+              "       |"
               "       +"
               ""
               "")
@@ -295,7 +295,11 @@
   "Test finding the lowest y to prevent intersection."
   (should (equal 5 (graph//scan-lowest-y '((0 5) (7 10)) 3 3)))
   (should (equal 10 (graph//scan-lowest-y '((0 5) (7 10)) 3 5)))
-  (should (equal 10 (graph//scan-lowest-y '((0 5) (7 10)) 20 5))))
+  (should (equal 10 (graph//scan-lowest-y '((0 5) (7 10)) 20 5)))
+  (should (equal 6 (graph//scan-lowest-y '((0 17) (9 13) (10 17) (21 13) (22 14) (31 6) (32 10) (41 6) (56.5 0))
+                                         42 8)))
+  (should (equal 6 (graph//scan-lowest-y '((0 0) (8.5 5) (12.0 11) (19.0 5) (20.0 10) (31.0 6) (46.75 0))
+                    41.25 10))))
 
 (ert-deftest height-fn ()
   "Test calculating height of a box."
@@ -316,10 +320,10 @@
                                  :line-right 15 :line-left 10 :line-ypos 30
                                  :leaf nil :parent-line-y 2))))
     (should (equal (list
-                    (make-graph-shape :x 7 :y 2 :height 5 :width 1 :type 'rect)
+                    (make-graph-shape :x 6.5 :y 2 :height 5 :width 1 :type 'rect)
                     (make-graph-shape :x 2 :y 6 :height 10 :width 10 :type 'rect :text '(" " " " " " "  asdf"))
                     (make-graph-shape :x 10 :y 30 :height 1 :width 5 :type 'rect)
-                    (make-graph-shape :x 7 :y 15 :height 16 :width 1 :type 'rect))
+                    (make-graph-shape :x 6.5 :y 15 :height 16 :width 1 :type 'rect))
                    (graph//tree-to-shapes tree)))))
 
 (ert-deftest make-rows ()
@@ -385,7 +389,7 @@
 
 (ert-deftest bounds ()
   "Test getting bounds of a node."
-  (should (equal 15 (graph//bounds (make-graph-treen :x 12 :width 6)))))
+  (should (equal 15.0 (graph//bounds (make-graph-treen :x 12 :width 6)))))
 
 (ert-deftest horz-lines ()
   "Test calculating horizontal line that leads to children."

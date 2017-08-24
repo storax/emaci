@@ -14,11 +14,11 @@
   x y width height type text dir on-top)
 
 (cl-defstruct graph-treen
-  id x y width height text wrapped-text line-right line-left line-ypos leaf parent parent-line-y children)
+  id x y width height text wrapped-text line-right line-left line-y line-ypos leaf parent parent-line-y children)
 
 (defun graph//half (x)
   "Devide X by two"
-  (/ x 2))
+  (/ x 2.0))
 
 (defun graph//fill (c &optional n)
   "Returns a string with the character C repeated N times."
@@ -36,11 +36,15 @@ See `graph-shape'."
                    (height (graph-shape-height shape))
                    (type (graph-shape-type shape))
                    (nu-x (floor x))
-                   (nu-y (floor y)))
-              (make-graph-shape :type type :x nu-x :y nu-y
-                           :width (- (floor (+ x width)) nu-x)
-                           :height (- (floor (+ y height)) nu-y))))
+                   (nu-y (floor y))
+                   (newitem (copy-graph-shape shape)))
+              (setf (graph-shape-x newitem) nu-x
+                    (graph-shape-y newitem) nu-y
+                    (graph-shape-width newitem) (- (floor (+ x width)) nu-x)
+                    (graph-shape-height newitem) (- (floor (+ y height)) nu-y))
+              newitem))
           shapes))
+
 
 (defun graph//rect-relation (ypos y height)
   "Calculates whether a rectangle intersects a y position.
@@ -173,8 +177,7 @@ Shape has the given TYPE, DIR and WIDTH."
             (s (if (>= index (length text))
                    ""
                  (elt text index))))
-       (concat s (graph//fill ?\s (- width (length s) 2)))))
-   "|"))
+       (concat s (graph//fill ?\s (- width (length s) 2)) "|")))))
 
 (defun graph//draw-at-ypos (ypos shape)
   "Draw at YPOS the given SHAPE."
@@ -246,7 +249,7 @@ It handles the special case of symbols, so that 'oak-tree ==> 'oak tree'."
   "Center the given lines."
   (let ((n (length lines))
         (lines (mapcar (lambda (s)
-                         (concat (make-string (graph//half (- width (length s))) ?\s) s))
+                         (concat (make-string (floor (graph//half (- width (length s)))) ?\s) s))
                        lines)))
     (if (< n height)
         (append (cl-loop repeat (graph//half (- height n)) collect "") lines)
@@ -295,9 +298,10 @@ It handles the special case of symbols, so that 'oak-tree ==> 'oak tree'."
 
 Scan is a list of (x y) pairs."
   (if scan
-      (let ((ax (caar scan))
-            (ay (cadar scan))
-            (d (cdr scan)))
+      (let* ((a (car scan))
+             (ax (car a))
+             (ay (cadr a))
+             (d (cdr scan)))
         (if (<= ax xend)
             (graph//-scan-add d ay xend)
           (cons (list xend cury) scan)))
@@ -306,10 +310,10 @@ Scan is a list of (x y) pairs."
 (defun graph//-scan-advance (scan cury x y xend)
   "Advance scan."
   (if scan
-      (let ((a (car scan))
-            (ax (caar scan))
-            (ay (cadar scan))
-            (d (cdr scan)))
+      (let* ((a (car scan))
+             (ax (car a))
+             (ay (cadr a))
+             (d (cdr scan)))
         (if (> x ax)
             (cons a (graph//-scan-advance d ay x y xend))
           (cons (list x y) (graph//-scan-add scan cury xend))))
@@ -319,6 +323,25 @@ Scan is a list of (x y) pairs."
   "Add as new height bar at x with a width of wid and a height of y."
   (let ((xend (+ x wid)))
     (graph//-scan-advance scan nil x y xend)))
+
+;; (defn scan-add [scan x y wid]
+;;   "Adds a new height bar at x with a width of wid and a height of y."
+;;   (let [xend (+ x wid)]
+;;     (letfn [[advance [scan cury]
+;;                      (if (seq scan)
+;;                          (let [[[ax ay :as a] & d] scan]
+;;                            (if (> x ax)
+;;                                (cons a (advance d ay))
+;;                              (cons [x y] (add scan cury))))
+;;                        (list [x y] [xend cury]))]
+;;             [add [scan cury]
+;;                  (if (seq scan)
+;;                      (let [[[ax ay] & d] scan]
+;;                        (if (<= ax xend)
+;;                            (add d ay)
+;;                          (cons [xend cury] scan)))
+;;                    (list [xend cury]))]]
+;;            (advance scan nil))))
 
 (defun graph//scan-lowest-y (scan x width)
   "Finds the lowest y that is available at x with width y
@@ -336,19 +359,19 @@ that would prevent it from intersecting with the scan."
               (return cury)))
            ((< x ax)
             (setq scan d
-                  cury ay
                   besty (if besty
                             (max besty ay cury)
                           (if cury
                               (max ay cury)
-                            ay))))
+                            ay))
+                  cury ay))
            (t (setq scan d
                     cury ay)))))
         (if besty
             (max besty cury)
           cury))))
 
-;; ;;This code is specific to ascii rendering
+;;This code is specific to ascii rendering
 
 (defvar graph-ascii-wrap-threshold 10
   "During ascii rendering, text in boxes wrap after this many characters.")
@@ -459,7 +482,7 @@ The height depends on how the text is broken into lines."
              row))
    rows))
 
-(defun graph//row-pos (row)
+(defun graph//row-pos (row y)
   "Calculate preliminary x positions for nodes in a tree.
 
 This will be refined later by the calculations from `graph//space' and `graph//space-row'."
@@ -503,7 +526,8 @@ FUN is either `graph//child-p' or `graph//parent-p'."
               (id (graph-treen-id item))
               (children (seq-filter (lambda (row) (funcall fun row item)) target-row))
               (child-pos (mapcar (lambda (item)
-                                   (+ (graph-treen-x item) (graph//half (graph-treen-width item))))))
+                                   (+ (graph-treen-x item) (graph//half (graph-treen-width item))))
+                                 children))
               (nu-remaining (- remaining width graph-node-padding))
               (nu-x (if child-pos
                         (let* ((child (car children))
@@ -515,7 +539,7 @@ FUN is either `graph//child-p' or `graph//parent-p'."
                                                                graph-node-padding (graph-treen-width child)))
                                              0))
                                (k (- (graph//half (+ (car child-pos) (car (last child-pos)))) (graph//half width) left-scoot))
-                               (no-right (+ k width graph-node-padding)))
+                               (nu-right (+ k width graph-node-padding)))
                           (if (< k curx)
                               curx
                             (if (< (- total-width nu-right) nu-remaining)
@@ -523,7 +547,7 @@ FUN is either `graph//child-p' or `graph//parent-p'."
                               k)))
                       curx)))
          (setq remaining nu-remaining
-               curx (+ nu-x width node-padding))
+               curx (+ nu-x width graph-node-padding))
          (setf (graph-treen-x newitem) nu-x)
          newitem))
      row)))
@@ -531,11 +555,11 @@ FUN is either `graph//child-p' or `graph//parent-p'."
 (defun graph//space (fun total-width target-row rest)
   "Use space-row for a list of rows."
   (when rest
-    (let ((curx 0)
-          (row (caar rest))
-          (remaining (cadar rest))
-          (more (cdr rest))
-          (nu-row (graph//space-row fun total-width target-row row remaining)))
+    (let* ((curx 0)
+           (row (caar rest))
+           (remaining (cadar rest))
+           (more (cdr rest))
+           (nu-row (graph//space-row fun total-width target-row row remaining)))
       (cons nu-row (graph//space fun total-width nu-row more)))))
 
 (defun graph//bounds (node)
@@ -582,7 +606,8 @@ Nodes should be able to connect to their children in a tree with the least amoun
                                   (+ line-y 1))))
                   (t (setq line-y 0)))
             (setq group-right (max line-right group-right))
-            (setf (graph-line-y newitem line-y))))
+            (setf (graph-treen-line-y newitem) line-y)
+            newitem))
         row)))
    lined))
 ;; (defun level-lines 
@@ -606,6 +631,20 @@ Nodes should be able to connect to their children in a tree with the least amoun
 ;;                 row)))
 ;;        lined))
 
+(defun graph//lev-children (levlines)
+  "Update children with the levle of the horizontal line of their parents"
+  (mapcar*
+   (lambda (cur par)
+     (mapcar (lambda (item)
+               (let* ((newitem (copy-graph-treen item))
+                      (parent (graph-treen-parent item))
+                      (k (car (seq-filter (lambda (other) (= (graph-treen-id other) parent)) par)))
+                      (liney (when k (graph-treen-line-ypos k))))
+                 (setf (graph-treen-parent-line-y newitem) liney)
+                 newitem))
+             cur))
+   levlines
+   (cons (list) levlines)))
 ;; (defun lev-children [levlines]
 ;;   "Updates children with the level of the horizontal line of their parents."
 ;;   (map (fn [cur par]
@@ -618,6 +657,22 @@ Nodes should be able to connect to their children in a tree with the least amoun
 ;;        levlines
 ;;        (cons [] levlines)))
 
+(defun graph//place-boxes (scan acc row)
+  "Places boxes as high as possible during tree packing"
+  (cl-loop while t do
+    (if row
+        (let* ((item (car row))
+               (x (graph-treen-x item))
+               (width (graph-treen-width item))
+               (height (graph-treen-height item))
+               (r (cdr row))
+               (y (graph//scan-lowest-y scan x width))
+               (newitem (copy-graph-treen item)))
+          (setf (graph-treen-y newitem) y)
+          (setq scan (graph//scan-add scan x (+ y height graph-line-padding) width)
+                acc (cons newitem acc)
+                row r))
+      (return (list (reverse acc) scan)))))
 ;; (defun place-boxes [{:keys [line-padding] :as dim} scan acc row]
 ;;   "Places boxes as high as possible during tree packing."
 ;;   (if-let [[{:keys [x width height] :as item} & r] (seq row)]
@@ -625,7 +680,26 @@ Nodes should be able to connect to their children in a tree with the least amoun
 ;;       (recur dim (scan-add scan x (+ y height line-padding) width) (cons (assoc item :y y) acc) r))
 ;;     [(reverse acc) scan]))
 
-
+(defun graph//place-lines (scan acc row)
+  "Places lines as hight as possible during tree packing"
+  (cl-loop while t do
+    (if row
+        (let* ((item (car row))
+               (line-left (graph-treen-line-left item))
+               (line-right (graph-treen-line-right item))
+               (leaf (graph-treen-leaf item))
+               (r (cdr row))
+               (line-width (- line-right line-left))
+               (cury (graph//scan-lowest-y scan line-left line-width)))
+          (if leaf
+              (setq acc (cons item acc)
+                    row r)
+            (let ((newitem (copy-graph-treen item)))
+              (setf (graph-treen-line-ypos newitem) cury)
+              (setq scan (graph//scan-add scan line-left (+ cury graph-line-wid graph-line-padding) line-width)
+                    acc (cons newitem acc)
+                    row r))))
+      (return (list (reverse acc) scan)))))
 ;; (defun place-lines [{:keys [line-padding line-wid] :as dim} scan acc row]
 ;;   "Places lines as high as possible during tree packing."
 ;;   (if (seq row)
@@ -636,7 +710,22 @@ Nodes should be able to connect to their children in a tree with the least amoun
 ;;         (recur dim scan (cons item acc) r)
 ;;         (recur dim (scan-add scan line-left (+ cury line-wid line-padding) line-width) (cons (assoc item :line-ypos cury) acc) r)))
 ;;     [(reverse acc) scan]))
+(defun graph//-pack-tree (scan rows)
+  (when rows
+    (let* ((row (car rows))
+           (more (cdr rows))
+           (rowscan (graph//place-boxes scan nil row))
+           (row (car rowscan))
+           (scan (cadr rowscan))
+           (sorted-row (cl-sort row '< :key 'graph-treen-line-y))
+           (lps (graph//place-lines scan nil sorted-row))
+           (lines-placed (car lps))
+           (scan (cadr lps)))
+      (cons lines-placed (graph//-pack-tree scan more)))))
 
+(defun graph//pack-tree (rows)
+  "Get rid of extra empty space in a tree by moving up nodes and horizontal lines as much as possible"
+  (graph//-pack-tree '((0 0)) rows))
 ;; (defun pack-tree 
 ;;   "gets rid of extra empty space in a tree by moving up nodes and horizontal lines as much as possible."
 ;;   [{:keys [line-padding line-wid] :as dim} rows]
@@ -675,28 +764,27 @@ Nodes should be able to connect to their children in a tree with the least amoun
                      row))
      (* (- (length row) 1)) graph-node-padding))
 
-(defun layout-tree (tree)
+(defun graph//layout-tree (tree)
   "This takes a tree and elegantly arranges it."
   (let* ((rows (graph//make-rows tree))
-         (wrapped (wrap-text rows))
+         (wrapped (graph//wrap-text rows))
          (widths (mapcar (apply-partially 'graph//tree-row-wid) wrapped))
          (total-width (apply 'max widths))
          (top 0)
          (left 0)
          (divider (car (graph//positions (apply-partially '= total-width) widths)))
          (pos (mapcar* 'list
-                       (mapcar* (apply-partially 'graph//row-pos)
-                                      wrapped (number-sequence 0 (length wrapped)))
+                       (mapcar* 'graph//row-pos wrapped (number-sequence 0 (length wrapped)))
                        widths))
          (zipped-top (reverse (cl-subseq pos 0 divider)))
          (target-row (car (nth divider pos)))
          (zipped-bottom (cl-subseq pos (+ 1 divider)))
-         (spaced-top (space 'graph//parent-p total-width target-row zipped-top))
-         (spaced-bottom (space 'graph//child-p total-width target-row zipped-bottom))
+         (spaced-top (graph//space 'graph//parent-p total-width target-row zipped-top))
+         (spaced-bottom (graph//space 'graph//child-p total-width target-row zipped-bottom))
          (spaced-pos (append (reverse spaced-top) (list target-row) spaced-bottom))
          (lined (graph//horz-lines spaced-pos))
          (leveled-lines (graph//level-lines lined))
-         (packed (graph//packtree leveled-lines))
+         (packed (graph//pack-tree leveled-lines))
          (lev-chi (graph//lev-children packed)))
     (apply 'append lev-chi)))
 ;; (defun layout-tree [{:keys [row-padding height width width-fn] :as dim} tree]
@@ -1424,6 +1512,10 @@ Nodes should be able to connect to their children in a tree with the least amoun
 ;;         (recur (rest rows))))))
 
 ;; ;;Exported functions for interfacing with this library
+
+(defun graph/draw-tree (tree)
+  "Draws a tree and returns the text"
+  (graph//draw-shapes (graph//integer-shapes (graph//tree-to-shapes (graph//layout-tree (graph//idtree tree))))))
 
 ;; (defun draw-tree 
 ;;   "Draws a tree to the console."
