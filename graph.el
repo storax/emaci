@@ -71,7 +71,7 @@ Returns 'on, 'in or 'nil."
   "Iterate over all y values for the height of the given SHAPES.
 
 Starts at 0."
-  (number-sequence 0 (graph//shapes-height shapes)))
+  (number-sequence 0 (- (graph//shapes-height shapes) 1)))
 
 (defun graph//filter-shapes-at-ypos (ypos shapes)
   (remove-if-not (lambda (shape)
@@ -86,7 +86,7 @@ Starts at 0."
 Shapes that start at a lower x value come first.
 If x value is the same the narrower shape takes precedence.
 If they are the same width the higher shape takes precedence."
-  (sort shapes
+  (sort (copy-sequence shapes)
         (lambda (a b)
           (let ((ax (graph-shape-x a))
                 (bx (graph-shape-x b))
@@ -223,13 +223,6 @@ Shape has the given TYPE, DIR and WIDTH."
             (cons 'shapes (graph//get-next-shapes-to-draw overlapping shape more))
             (cons 'drawn (concat drawn (graph//crop-already-drawn xcur x s)))))))
 
-;; (defun out 
-;;   "like 'print' but without inserted spaces and fully flushed"
-;;   [& more]
-;;   (print (apply str more))
-;;   (flush)
-;;   (first more))
-
 (defun graph//numbered (lst)
   "Enumerate the given list."
   (let ((counter -1))
@@ -323,25 +316,6 @@ Scan is a list of (x y) pairs."
   "Add as new height bar at x with a width of wid and a height of y."
   (let ((xend (+ x wid)))
     (graph//-scan-advance scan nil x y xend)))
-
-;; (defn scan-add [scan x y wid]
-;;   "Adds a new height bar at x with a width of wid and a height of y."
-;;   (let [xend (+ x wid)]
-;;     (letfn [[advance [scan cury]
-;;                      (if (seq scan)
-;;                          (let [[[ax ay :as a] & d] scan]
-;;                            (if (> x ax)
-;;                                (cons a (advance d ay))
-;;                              (cons [x y] (add scan cury))))
-;;                        (list [x y] [xend cury]))]
-;;             [add [scan cury]
-;;                  (if (seq scan)
-;;                      (let [[[ax ay] & d] scan]
-;;                        (if (<= ax xend)
-;;                            (add d ay)
-;;                          (cons [xend cury] scan)))
-;;                    (list [xend cury]))]]
-;;            (advance scan nil))))
 
 (defun graph//scan-lowest-y (scan x width)
   "Finds the lowest y that is available at x with width y
@@ -610,26 +584,6 @@ Nodes should be able to connect to their children in a tree with the least amoun
             newitem))
         row)))
    lined))
-;; (defun level-lines 
-;;   "This function is used to stagger horizontal lines vertically in an optimal fashion, so that nodes can connect to their children in a tree with the least amount of inbetween space."
-;;   [{:keys [line-wid line-padding]} lined]
-;;   (map (fn [row]
-;;          (let [group-right (atom 0)
-;;                line-y (atom 0)]
-;;            (map (fn [{:keys [leaf line-left line-right x width] :as item}]
-;;                   (cond leaf 
-;;                         item
-;;                         (and @group-right (> (+ @group-right line-wid) line-left))
-;;                         (swap! line-y
-;;                                (if (<= (+ x (half width)) (+ @group-right line-padding))
-;;                                  dec
-;;                                  inc))
-;;                         true
-;;                         (compare-and-set! line-y @line-y 0))
-;;                   (swap! group-right (partial max line-right))
-;;                   (assoc item :line-y @line-y))
-;;                 row)))
-;;        lined))
 
 (defun graph//lev-children (levlines)
   "Update children with the levle of the horizontal line of their parents"
@@ -645,17 +599,6 @@ Nodes should be able to connect to their children in a tree with the least amoun
              cur))
    levlines
    (cons (list) levlines)))
-;; (defun lev-children [levlines]
-;;   "Updates children with the level of the horizontal line of their parents."
-;;   (map (fn [cur par]
-;;          (map (fn [item]
-;;                 (assoc item 
-;;                   :parent-line-y 
-;;                   (when-let [k (first (filter #(= (% :id) (item :parent)) par))]
-;;                     (k :line-ypos))))
-;;               cur))
-;;        levlines
-;;        (cons [] levlines)))
 
 (defun graph//place-boxes (scan acc row)
   "Places boxes as high as possible during tree packing"
@@ -673,12 +616,6 @@ Nodes should be able to connect to their children in a tree with the least amoun
                 acc (cons newitem acc)
                 row r))
       (return (list (reverse acc) scan)))))
-;; (defun place-boxes [{:keys [line-padding] :as dim} scan acc row]
-;;   "Places boxes as high as possible during tree packing."
-;;   (if-let [[{:keys [x width height] :as item} & r] (seq row)]
-;;     (let [y (scan-lowest-y scan x width)]
-;;       (recur dim (scan-add scan x (+ y height line-padding) width) (cons (assoc item :y y) acc) r))
-;;     [(reverse acc) scan]))
 
 (defun graph//place-lines (scan acc row)
   "Places lines as hight as possible during tree packing"
@@ -700,16 +637,7 @@ Nodes should be able to connect to their children in a tree with the least amoun
                     acc (cons newitem acc)
                     row r))))
       (return (list (reverse acc) scan)))))
-;; (defun place-lines [{:keys [line-padding line-wid] :as dim} scan acc row]
-;;   "Places lines as high as possible during tree packing."
-;;   (if (seq row)
-;;     (let [[{:keys [line-left line-right leaf] :as item} & r] row
-;;           line-width (- line-right line-left)
-;;           cury (scan-lowest-y scan line-left line-width)]
-;;       (if leaf
-;;         (recur dim scan (cons item acc) r)
-;;         (recur dim (scan-add scan line-left (+ cury line-wid line-padding) line-width) (cons (assoc item :line-ypos cury) acc) r)))
-;;     [(reverse acc) scan]))
+
 (defun graph//-pack-tree (scan rows)
   (when rows
     (let* ((row (car rows))
@@ -726,16 +654,6 @@ Nodes should be able to connect to their children in a tree with the least amoun
 (defun graph//pack-tree (rows)
   "Get rid of extra empty space in a tree by moving up nodes and horizontal lines as much as possible"
   (graph//-pack-tree '((0 0)) rows))
-;; (defun pack-tree 
-;;   "gets rid of extra empty space in a tree by moving up nodes and horizontal lines as much as possible."
-;;   [{:keys [line-padding line-wid] :as dim} rows]
-;;   (letfn [[f [scan rows]
-;;            (when-let [[row & more] (seq rows)]
-;;              (let [[row scan] (place-boxes dim scan nil row)
-;;                    sorted-row (sort-by :line-y row)
-;;                    [lines-placed scan] (place-lines dim scan nil sorted-row)]
-;;                (lazy-seq (cons lines-placed (f scan more)))))]]
-;;     (f [[0 0]] rows)))
 
 (defun graph//-idtree (n tree)
   (let ((labeled
@@ -787,39 +705,6 @@ Nodes should be able to connect to their children in a tree with the least amoun
          (packed (graph//pack-tree leveled-lines))
          (lev-chi (graph//lev-children packed)))
     (apply 'append lev-chi)))
-;; (defun layout-tree [{:keys [row-padding height width width-fn] :as dim} tree]
-;;   "This takes a tree and elegantly arranges it."
-;;   (let [rows (make-rows tree)
-;;         wrapped (wrap-text dim rows)
-;;         total-height (* (count wrapped) row-padding)
-;;         widths (map (partial tree-row-wid dim) wrapped)
-;;         total-width (apply max widths)
-;;         total-height (* (inc (count rows)) row-padding)
-;;         top 0
-;;         left 0
-;;         divider (first (positions (partial = total-width) widths))
-;;         pos (map vector (map (partial row-pos dim) wrapped (iterate inc 0)) widths)
-;;         zipped-top (reverse (take divider pos))
-;;         target-row (first (nth pos divider))
-;;         zipped-bottom (drop (inc divider) pos)
-;;         spaced-top (space dim
-;;                           (fn [{p :parent} {id :id}]
-;;                             (== p id))
-;;                           total-width
-;;                           target-row
-;;                           zipped-top)
-;;         spaced-bottom (space dim
-;;                            (fn [{id :id} {p :parent}]
-;;                              (== id p))
-;;                            total-width
-;;                            target-row
-;;                            zipped-bottom)
-;;         spaced-pos (concat (reverse spaced-top) [target-row] spaced-bottom)
-;;         lined (horz-lines dim spaced-pos)
-;;         leveled-lines (level-lines dim lined)
-;;         packed (pack-tree dim leveled-lines)
-;;         lev-chi (lev-children packed)]
-;;     (apply concat lev-chi)))
 
 ;; ;;Functions specific to graphs
 
@@ -1516,6 +1401,8 @@ Nodes should be able to connect to their children in a tree with the least amoun
 (defun graph/draw-tree (tree)
   "Draws a tree and returns the text"
   (graph//draw-shapes (graph//integer-shapes (graph//tree-to-shapes (graph//layout-tree (graph//idtree tree))))))
+
+;; (draw-tree '(("Eubacteria" ("Aquificae") ("Nitrospira") ("Proteobacteria") ("Chlamydiae") ("Actinobacteria")) ("Eukaryotes" ("Archaeplastida" ("Green Plants" ("Prasinophytes") ("Chlorophyceae") ("Trebouxiophyceae") ("Ulvophyceae") ("Streptohyta" ("Zygnematales") ("Charales") ("Embryophytes (land plants)"))) ("Rhodophyta") ("Glaucophytes")) ("Unikots" ("Opisthokonts" ("Animals" ("Bilateria" ("Ecdysozoa" ("Nematoda") ("Arthropoda")) ("Lophotrochozoa") ("Deuterostoma" ("Echinodermata") ("Hemichordata") ("Chordata" ("Urochordata") ("Cephalochordata") ("Yonnanozoon") ("Craniata")))) ("Cnidaria") ("Porifera")) ("Choanoflagellates") ("Filasterea") ("Ichthyosporea") ("Fungi") ("Nucleariidae"))) ("Chromalveolates" ("Rhizaria" ("Cercozoa") ("Foraminifera") ("Radiolaria")) ("Alveolates") ("Stramenopiles") ("Hacrobia")) ("Excavates" ("Malawimonads") ("Discicristates" ("Euglenozoa") ("Heterolobosea")) ("Fornicata")))))
 
 ;; (defun draw-tree 
 ;;   "Draws a tree to the console."
